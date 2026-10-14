@@ -1,0 +1,62 @@
+{
+  "lexicon": 1,
+  "id": "app.speedrunledger-prototype.verification",
+  "defs": {
+    "main": {
+      "type": "record",
+      "key": "tid",
+      "description": "A community's verdict on one exact version (CID) of a run.",
+      "record": {
+        "type": "object",
+        "required": [
+          "subject",
+          "status",
+          "reviewer",
+          "createdAt"
+        ],
+        "properties": {
+          "subject": {
+            "type": "ref",
+            "ref": "com.atproto.repo.strongRef",
+            "description": "The run, pinned to the CID that was reviewed."
+          },
+          "status": {
+            "type": "string",
+            "knownValues": [
+              "verified",
+              "rejected",
+              "changesRequested"
+            ]
+          },
+          "verifiedTimes": {
+            "type": "ref",
+            "ref": "app.speedrunledger-prototype.run#times",
+            "description": "A moderator's retime; overrides the run's times on boards."
+          },
+          "ruleset": {
+            "type": "ref",
+            "ref": "com.atproto.repo.strongRef"
+          },
+          "reason": {
+            "type": "string",
+            "maxLength": 10000,
+            "maxGraphemes": 1000
+          },
+          "reviewer": {
+            "type": "string",
+            "format": "did"
+          },
+          "reviewerRecord": {
+            "type": "ref",
+            "ref": "com.atproto.repo.strongRef",
+            "description": "Reserved for co-signed reviews."
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "datetime"
+          }
+        }
+      }
+    }
+  }
+}

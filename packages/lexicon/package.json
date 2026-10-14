@@ -1,0 +1,29 @@
+{
+  "name": "@speedrunledger/lexicon",
+  "version": "0.0.0",
+  "private": true,
+  "license": "MIT",
+  "type": "module",
+  "exports": {
+    ".": {
+      "@speedrunledger/source": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "codegen": "lex build --lexicons ./lexicons --out ./src/lexicons --clear --index-file",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@atproto/lex": "0.3.14",
+    "@atproto/lexicon": "0.7.16",
+    "@atproto/syntax": "0.7.6"
+  },
+  "files": [
+    "dist",
+    "lexicons"
+  ]
+}

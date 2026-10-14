@@ -1,0 +1,8 @@
+{
+  "name": "speedrunledger-plc",
+  "private": true,
+  "description": "Local PLC directory for development and tests",
+  "dependencies": {
+    "@did-plc/server": "0.0.1"
+  }
+}

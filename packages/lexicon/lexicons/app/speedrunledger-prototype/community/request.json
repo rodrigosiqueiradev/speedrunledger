@@ -1,0 +1,73 @@
+{
+  "lexicon": 1,
+  "id": "app.speedrunledger-prototype.community.request",
+  "defs": {
+    "main": {
+      "type": "record",
+      "key": "tid",
+      "description": "Asks the sysadmins for a community for a game, naming its founding moderators. Lives in the requester's repo.",
+      "record": {
+        "type": "object",
+        "required": [
+          "game",
+          "founders",
+          "createdAt"
+        ],
+        "properties": {
+          "game": {
+            "type": "ref",
+            "ref": "#gameInfo"
+          },
+          "founders": {
+            "type": "array",
+            "minLength": 1,
+            "maxLength": 10,
+            "items": {
+              "type": "string",
+              "format": "did"
+            }
+          },
+          "note": {
+            "type": "string",
+            "maxLength": 20000,
+            "maxGraphemes": 2000
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "datetime"
+          }
+        }
+      }
+    },
+    "gameInfo": {
+      "type": "object",
+      "required": [
+        "title"
+      ],
+      "properties": {
+        "title": {
+          "type": "string",
+          "maxLength": 1280,
+          "maxGraphemes": 128
+        },
+        "releaseYear": {
+          "type": "integer",
+          "minimum": 1950,
+          "maximum": 2200
+        },
+        "platforms": {
+          "type": "array",
+          "maxLength": 32,
+          "items": {
+            "type": "string",
+            "maxLength": 64
+          }
+        },
+        "externalIds": {
+          "type": "ref",
+          "ref": "app.speedrunledger-prototype.game#externalIds"
+        }
+      }
+    }
+  }
+}

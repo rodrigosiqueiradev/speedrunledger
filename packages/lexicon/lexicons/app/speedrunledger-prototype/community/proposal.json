@@ -1,0 +1,125 @@
+{
+  "lexicon": 1,
+  "id": "app.speedrunledger-prototype.community.proposal",
+  "defs": {
+    "main": {
+      "type": "record",
+      "key": "tid",
+      "description": "A proposed change to a community, voted on by its moderators. Lives in the proposer's repo and counts as their yes vote.",
+      "record": {
+        "type": "object",
+        "required": [
+          "community",
+          "action",
+          "reason",
+          "expiresAt",
+          "createdAt"
+        ],
+        "properties": {
+          "community": {
+            "type": "string",
+            "format": "did"
+          },
+          "action": {
+            "type": "union",
+            "refs": [
+              "#invite",
+              "#kick",
+              "#putRecord",
+              "#liftBan",
+              "#migrate"
+            ]
+          },
+          "reason": {
+            "type": "string",
+            "maxLength": 10000,
+            "maxGraphemes": 1000
+          },
+          "expiresAt": {
+            "type": "string",
+            "format": "datetime",
+            "description": "At most 7 days after creation."
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "datetime"
+          }
+        }
+      }
+    },
+    "invite": {
+      "type": "object",
+      "required": [
+        "subject"
+      ],
+      "properties": {
+        "subject": {
+          "type": "string",
+          "format": "did"
+        }
+      }
+    },
+    "kick": {
+      "type": "object",
+      "required": [
+        "subject"
+      ],
+      "properties": {
+        "subject": {
+          "type": "string",
+          "format": "did"
+        }
+      }
+    },
+    "putRecord": {
+      "type": "object",
+      "required": [
+        "collection",
+        "record"
+      ],
+      "description": "Create or replace a category or ruleset record with exactly this content.",
+      "properties": {
+        "collection": {
+          "type": "string",
+          "format": "nsid",
+          "knownValues": [
+            "app.speedrunledger-prototype.category",
+            "app.speedrunledger-prototype.ruleset"
+          ]
+        },
+        "rkey": {
+          "type": "string",
+          "format": "record-key",
+          "description": "Omit to create a new record."
+        },
+        "record": {
+          "type": "unknown"
+        }
+      }
+    },
+    "liftBan": {
+      "type": "object",
+      "required": [
+        "ban"
+      ],
+      "properties": {
+        "ban": {
+          "type": "ref",
+          "ref": "com.atproto.repo.strongRef"
+        }
+      }
+    },
+    "migrate": {
+      "type": "object",
+      "required": [
+        "pdsEndpoint"
+      ],
+      "properties": {
+        "pdsEndpoint": {
+          "type": "string",
+          "format": "uri"
+        }
+      }
+    }
+  }
+}
