@@ -4,7 +4,7 @@
 # Pods share the host network so every service, the tests and the browser
 # see the same URLs (localhost:2582 PLC, localhost:2583 PDS,
 # localhost:5433 Postgres, localhost:2584 AppView, localhost:2586 community service,
-# 127.0.0.1:2585 Runner app, 127.0.0.1:2587 Moderator app). The indexer follows the PDS's own event stream,
+# 127.0.0.1:2585 Runner app, 127.0.0.1:2587 Moderator app, 127.0.0.1:2589 Admin app). The indexer follows the PDS's own event stream,
 # since there is no relay locally. Secrets come from the `ledger-dev` podman secret
 # that dev-up.mjs generates on first run.
 apiVersion: v1
@@ -104,6 +104,49 @@ spec:
             secretKeyRef:
               name: ledger-dev
               key: cookieSecret
+---
+# The Admin app holds the community service's admin token, so it gets its own pod too.
+apiVersion: v1
+kind: Pod
+metadata:
+  name: ledger-admin
+  labels:
+    app: speedrunledger
+spec:
+  hostNetwork: true
+  restartPolicy: Always
+  containers:
+    - name: admin-web
+      image: localhost/speedrunledger/admin-web:dev
+      command: ["node", "--enable-source-maps", "dist/server/bin.js"]
+      env:
+        - name: ADMIN_PORT
+          value: "2589"
+        - name: ADMIN_PUBLIC_URL
+          value: http://127.0.0.1:2589
+        - name: APPVIEW_URL
+          value: http://localhost:2584
+        - name: COMMUNITY_SERVICE_URL
+          value: http://localhost:2586
+        - name: PDS_URL
+          value: http://localhost:2583
+        - name: PLC_URL
+          value: http://localhost:2582
+        - name: DATABASE_URL
+          valueFrom:
+            secretKeyRef:
+              name: ledger-dev
+              key: databaseUrl
+        - name: COOKIE_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: ledger-dev
+              key: cookieSecret
+        - name: COMMUNITY_ADMIN_TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: ledger-dev
+              key: communityAdminToken
 ---
 # The only pod holding community account sessions, kept apart from the web pod.
 apiVersion: v1

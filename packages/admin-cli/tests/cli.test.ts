@@ -103,6 +103,15 @@ describe('ledger-admin', () => {
     await expect(cli(['platform', 'init', '--handle', 'again.test', '--sysadmin', sysadmin.did])).rejects.toThrow(/AlreadyInitialized/)
   })
 
+  it('adds and removes sysadmins, but never the last one', async () => {
+    expect(await cli(['sysadmin', 'add', founder.handle], sysadmin.did)).toContain(`${founder.did} is now a sysadmin`)
+    expect((await json(['sysadmin', 'list'])).sort()).toEqual([sysadmin.did, founder.did].sort())
+    expect(await cli(['sysadmin', 'remove', founder.handle], sysadmin.did)).toContain('is no longer a sysadmin')
+    expect(await json(['sysadmin', 'list'])).toEqual([sysadmin.did])
+    await expect(cli(['sysadmin', 'remove', sysadmin.did], sysadmin.did)).rejects.toThrow(/LastSysadmin/)
+    await expect(cli(['sysadmin', 'remove', sysadmin.did], founder.did)).rejects.toThrow(/NotSysadmin/)
+  })
+
   it('needs to know which sysadmin is acting', async () => {
     await expect(cli(['community', 'freeze', founder.did, '--reason', 'x'])).rejects.toThrow(UsageError)
     await expect(cli(['sysadmin', 'add', founder.did], founder.did)).rejects.toThrow(/NotSysadmin/)

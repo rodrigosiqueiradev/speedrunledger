@@ -1,5 +1,5 @@
 // Starts the local stack (Postgres, indexer, PLC directory, PDS, AppView,
-// community service, both web apps) with podman kube play.
+// community service, the three web apps) with podman kube play.
 //
 // First run generates random dev secrets into dev.env in LEDGER_DEV_DIR
 // (default ~/.local/share/speedrunledger) and stores them as the `ledger-dev`
@@ -120,7 +120,9 @@ await waitFor('appview', 'http://localhost:2584/xrpc/app.speedrunledger-prototyp
 await waitFor('community-service', 'http://localhost:2586/_health')
 await waitFor('runner-web', 'http://127.0.0.1:2585/')
 await waitFor('moderator-web', 'http://127.0.0.1:2587/')
+await waitFor('admin-web', 'http://127.0.0.1:2589/')
 console.log('Runner app:    http://127.0.0.1:2585')
 console.log('Moderator app: http://127.0.0.1:2587')
+console.log('Admin app:     http://127.0.0.1:2589')
 console.log('(open the apps at 127.0.0.1, not localhost, for OAuth)')
 console.log(`env for tools and tests: ${envFile}`)

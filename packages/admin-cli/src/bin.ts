@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import { LedgerAdmin, readEnv, UsageError } from './cli.js'
+import { AdminApiError } from './client.js'
 
 try {
   const argv = process.argv.slice(2)
@@ -9,6 +10,6 @@ try {
     await new LedgerAdmin(readEnv()).run(argv)
   }
 } catch (err) {
-  console.error(err instanceof UsageError ? `ledger-admin: ${err.message}` : err)
+  console.error(err instanceof UsageError || err instanceof AdminApiError ? `ledger-admin: ${err.message}` : err)
   process.exit(1)
 }

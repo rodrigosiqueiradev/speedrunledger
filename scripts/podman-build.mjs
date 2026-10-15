@@ -6,7 +6,7 @@
 import { pathToFileURL } from 'node:url'
 import { run } from './lib.mjs'
 
-export const images = ['plc', 'pds', 'indexer', 'appview', 'community-service', 'runner-web', 'moderator-web']
+export const images = ['plc', 'pds', 'indexer', 'appview', 'community-service', 'runner-web', 'moderator-web', 'admin-web']
 
 export function buildImage(name) {
   const args = ['build', '--network=host']
