@@ -135,6 +135,16 @@ async function newCommunity(moderators: number): Promise<TestCommunity> {
     password: community.account.password,
     pdsUrl: env.pdsUrl,
   })
+  // A proposal's electorate is fixed when it is first indexed, so wait until every moderator counts as active.
+  await waitFor(async () => {
+    const active = await indexer.indexer.db
+      .selectFrom('community_member')
+      .select('member_did')
+      .where('community_did', '=', community.account.did)
+      .where('active', '=', true)
+      .execute()
+    return active.length === moderators ? true : undefined
+  })
   return community
 }
 
