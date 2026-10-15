@@ -1,0 +1,919 @@
+{
+  "lexicon": 1,
+  "id": "app.speedrunledger-prototype.defs",
+  "description": "Views served by the SpeedrunLedger AppView.",
+  "defs": {
+    "actorView": {
+      "type": "object",
+      "required": [
+        "did"
+      ],
+      "properties": {
+        "did": {
+          "type": "string",
+          "format": "did"
+        },
+        "handle": {
+          "type": "string",
+          "format": "handle"
+        }
+      }
+    },
+    "communityView": {
+      "type": "object",
+      "required": [
+        "did",
+        "name"
+      ],
+      "properties": {
+        "did": {
+          "type": "string",
+          "format": "did"
+        },
+        "handle": {
+          "type": "string",
+          "format": "handle"
+        },
+        "name": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        },
+        "frozen": {
+          "type": "boolean",
+          "description": "Frozen by a sysadmin: boards stay visible, but no verdicts, votes or changes are accepted."
+        }
+      }
+    },
+    "gameView": {
+      "type": "object",
+      "required": [
+        "uri",
+        "cid",
+        "title",
+        "platforms"
+      ],
+      "properties": {
+        "uri": {
+          "type": "string",
+          "format": "at-uri"
+        },
+        "cid": {
+          "type": "string",
+          "format": "cid"
+        },
+        "title": {
+          "type": "string"
+        },
+        "releaseYear": {
+          "type": "integer"
+        },
+        "platforms": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "categoryView": {
+      "type": "object",
+      "required": [
+        "uri",
+        "cid",
+        "game",
+        "name",
+        "kind",
+        "sort",
+        "primaryTiming",
+        "timingMethods",
+        "variables",
+        "requiresVideo",
+        "requiredApprovals",
+        "retired"
+      ],
+      "properties": {
+        "uri": {
+          "type": "string",
+          "format": "at-uri"
+        },
+        "cid": {
+          "type": "string",
+          "format": "cid"
+        },
+        "game": {
+          "type": "string",
+          "format": "at-uri"
+        },
+        "name": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        },
+        "kind": {
+          "type": "string"
+        },
+        "sort": {
+          "type": "string"
+        },
+        "primaryTiming": {
+          "type": "string"
+        },
+        "timingMethods": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "variables": {
+          "type": "array",
+          "items": {
+            "type": "ref",
+            "ref": "app.speedrunledger-prototype.category#variable"
+          }
+        },
+        "requiresVideo": {
+          "type": "boolean"
+        },
+        "requiredApprovals": {
+          "type": "integer"
+        },
+        "retired": {
+          "type": "boolean"
+        },
+        "ruleset": {
+          "type": "ref",
+          "ref": "#rulesetView"
+        }
+      }
+    },
+    "rulesetView": {
+      "type": "object",
+      "required": [
+        "uri",
+        "cid",
+        "text",
+        "createdAt"
+      ],
+      "properties": {
+        "uri": {
+          "type": "string",
+          "format": "at-uri"
+        },
+        "cid": {
+          "type": "string",
+          "format": "cid"
+        },
+        "text": {
+          "type": "string"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "datetime"
+        }
+      }
+    },
+    "gameDetail": {
+      "type": "object",
+      "required": [
+        "game",
+        "categories"
+      ],
+      "properties": {
+        "game": {
+          "type": "ref",
+          "ref": "#gameView"
+        },
+        "categories": {
+          "type": "array",
+          "items": {
+            "type": "ref",
+            "ref": "#categoryView"
+          }
+        }
+      }
+    },
+    "communityDetail": {
+      "type": "object",
+      "required": [
+        "community",
+        "games"
+      ],
+      "properties": {
+        "community": {
+          "type": "ref",
+          "ref": "#communityView"
+        },
+        "games": {
+          "type": "array",
+          "items": {
+            "type": "ref",
+            "ref": "#gameDetail"
+          }
+        }
+      }
+    },
+    "verdictView": {
+      "type": "object",
+      "required": [
+        "uri",
+        "status",
+        "reviewer",
+        "subjectCid",
+        "current",
+        "indexedAt"
+      ],
+      "properties": {
+        "uri": {
+          "type": "string",
+          "format": "at-uri"
+        },
+        "status": {
+          "type": "string",
+          "knownValues": [
+            "verified",
+            "rejected",
+            "changesRequested"
+          ]
+        },
+        "reviewer": {
+          "type": "ref",
+          "ref": "#actorView"
+        },
+        "reason": {
+          "type": "string"
+        },
+        "verifiedTimes": {
+          "type": "ref",
+          "ref": "app.speedrunledger-prototype.run#times"
+        },
+        "subjectCid": {
+          "type": "string",
+          "format": "cid"
+        },
+        "current": {
+          "type": "boolean",
+          "description": "Whether the verdict is for the run's current version."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "datetime"
+        },
+        "indexedAt": {
+          "type": "string",
+          "format": "datetime"
+        }
+      }
+    },
+    "runView": {
+      "type": "object",
+      "required": [
+        "uri",
+        "cid",
+        "runner",
+        "category",
+        "community",
+        "status",
+        "times",
+        "videos",
+        "variables",
+        "problems",
+        "performedAt",
+        "createdAt",
+        "indexedAt"
+      ],
+      "properties": {
+        "uri": {
+          "type": "string",
+          "format": "at-uri"
+        },
+        "cid": {
+          "type": "string",
+          "format": "cid"
+        },
+        "runner": {
+          "type": "ref",
+          "ref": "#actorView"
+        },
+        "category": {
+          "type": "string",
+          "format": "at-uri"
+        },
+        "community": {
+          "type": "string",
+          "format": "did"
+        },
+        "status": {
+          "type": "string",
+          "knownValues": [
+            "pending",
+            "verified",
+            "rejected",
+            "changesRequested",
+            "invalid"
+          ],
+          "description": "From the latest verdict by an active moderator; pending when no verdict covers the current version."
+        },
+        "times": {
+          "type": "ref",
+          "ref": "app.speedrunledger-prototype.run#times"
+        },
+        "verifiedTimes": {
+          "type": "ref",
+          "ref": "app.speedrunledger-prototype.run#times"
+        },
+        "videos": {
+          "type": "array",
+          "items": {
+            "type": "ref",
+            "ref": "app.speedrunledger-prototype.run#video"
+          }
+        },
+        "variables": {
+          "type": "array",
+          "items": {
+            "type": "ref",
+            "ref": "app.speedrunledger-prototype.run#variableValue"
+          }
+        },
+        "platform": {
+          "type": "string"
+        },
+        "emulated": {
+          "type": "boolean"
+        },
+        "comment": {
+          "type": "string"
+        },
+        "problems": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Reference checks the run fails, such as an unknown category."
+        },
+        "rank": {
+          "type": "integer",
+          "description": "Current rank, when the run is on its board."
+        },
+        "verdicts": {
+          "type": "array",
+          "items": {
+            "type": "ref",
+            "ref": "#verdictView"
+          },
+          "description": "Newest first. Only in getRun."
+        },
+        "performedAt": {
+          "type": "string",
+          "format": "datetime"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "datetime"
+        },
+        "indexedAt": {
+          "type": "string",
+          "format": "datetime"
+        },
+        "labels": {
+          "type": "array",
+          "items": {
+            "type": "ref",
+            "ref": "#labelView"
+          },
+          "description": "Current labels on the run from moderators of its community, such as suspected-cheating."
+        },
+        "deadVideos": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "format": "uri"
+          },
+          "description": "Video links the community service's last check found gone."
+        }
+      }
+    },
+    "boardEntry": {
+      "type": "object",
+      "required": [
+        "rank",
+        "rankedMs",
+        "run"
+      ],
+      "properties": {
+        "rank": {
+          "type": "integer"
+        },
+        "rankedMs": {
+          "type": "integer"
+        },
+        "run": {
+          "type": "ref",
+          "ref": "#runView"
+        }
+      }
+    },
+    "queueItem": {
+      "type": "object",
+      "required": [
+        "run",
+        "category",
+        "approvals",
+        "requiredApprovals"
+      ],
+      "properties": {
+        "run": {
+          "type": "ref",
+          "ref": "#runView"
+        },
+        "category": {
+          "type": "ref",
+          "ref": "#categoryView"
+        },
+        "approvals": {
+          "type": "integer",
+          "description": "Distinct moderators who verified the current version so far."
+        },
+        "requiredApprovals": {
+          "type": "integer"
+        },
+        "approvedBy": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "format": "did"
+          }
+        }
+      }
+    },
+    "membershipView": {
+      "type": "object",
+      "required": [
+        "community",
+        "status",
+        "grant"
+      ],
+      "properties": {
+        "community": {
+          "type": "ref",
+          "ref": "#communityView"
+        },
+        "status": {
+          "type": "string",
+          "knownValues": [
+            "active",
+            "invited"
+          ],
+          "description": "invited until the account writes its memberAccept."
+        },
+        "grant": {
+          "type": "ref",
+          "ref": "com.atproto.repo.strongRef"
+        }
+      }
+    },
+    "proposalView": {
+      "type": "object",
+      "required": [
+        "uri",
+        "cid",
+        "community",
+        "proposer",
+        "actionType",
+        "action",
+        "reason",
+        "status",
+        "executed",
+        "electorateSize",
+        "needed",
+        "yes",
+        "no",
+        "votes",
+        "problems",
+        "createdAt",
+        "expiresAt",
+        "indexedAt"
+      ],
+      "properties": {
+        "uri": {
+          "type": "string",
+          "format": "at-uri"
+        },
+        "cid": {
+          "type": "string",
+          "format": "cid"
+        },
+        "community": {
+          "type": "string",
+          "format": "did"
+        },
+        "proposer": {
+          "type": "ref",
+          "ref": "#actorView"
+        },
+        "actionType": {
+          "type": "string",
+          "knownValues": [
+            "invite",
+            "kick",
+            "putRecord",
+            "liftBan",
+            "migrate"
+          ]
+        },
+        "action": {
+          "type": "unknown",
+          "description": "The proposal's action as written."
+        },
+        "reason": {
+          "type": "string"
+        },
+        "status": {
+          "type": "string",
+          "knownValues": [
+            "open",
+            "passed",
+            "failed",
+            "expired",
+            "invalid"
+          ]
+        },
+        "executed": {
+          "type": "boolean",
+          "description": "The community service has written the result of a passed proposal."
+        },
+        "result": {
+          "type": "string",
+          "format": "at-uri",
+          "description": "The record the community service wrote, when there is one."
+        },
+        "electorateSize": {
+          "type": "integer",
+          "description": "Active moderators when the proposal was indexed, minus the target of a kick."
+        },
+        "needed": {
+          "type": "integer",
+          "description": "Yes votes needed to pass: more than half the electorate."
+        },
+        "yes": {
+          "type": "integer"
+        },
+        "no": {
+          "type": "integer"
+        },
+        "votes": {
+          "type": "array",
+          "items": {
+            "type": "ref",
+            "ref": "#voteView"
+          }
+        },
+        "problems": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Why an invalid proposal does not count."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "datetime"
+        },
+        "expiresAt": {
+          "type": "string",
+          "format": "datetime"
+        },
+        "indexedAt": {
+          "type": "string",
+          "format": "datetime"
+        }
+      }
+    },
+    "voteView": {
+      "type": "object",
+      "required": [
+        "voter",
+        "value",
+        "indexedAt"
+      ],
+      "properties": {
+        "voter": {
+          "type": "ref",
+          "ref": "#actorView"
+        },
+        "value": {
+          "type": "string",
+          "knownValues": [
+            "yes",
+            "no"
+          ]
+        },
+        "reason": {
+          "type": "string"
+        },
+        "indexedAt": {
+          "type": "string",
+          "format": "datetime"
+        }
+      }
+    },
+    "moderatorView": {
+      "type": "object",
+      "required": [
+        "actor",
+        "status",
+        "grant",
+        "since"
+      ],
+      "properties": {
+        "actor": {
+          "type": "ref",
+          "ref": "#actorView"
+        },
+        "status": {
+          "type": "string",
+          "knownValues": [
+            "active",
+            "invited"
+          ]
+        },
+        "grant": {
+          "type": "ref",
+          "ref": "com.atproto.repo.strongRef"
+        },
+        "since": {
+          "type": "string",
+          "format": "datetime"
+        },
+        "lastActiveAt": {
+          "type": "string",
+          "format": "datetime",
+          "description": "Newest verdict, proposal or vote by this moderator in this community."
+        }
+      }
+    },
+    "banView": {
+      "type": "object",
+      "required": [
+        "uri",
+        "cid",
+        "subject",
+        "moderator",
+        "reason",
+        "indexedAt"
+      ],
+      "properties": {
+        "uri": {
+          "type": "string",
+          "format": "at-uri"
+        },
+        "cid": {
+          "type": "string",
+          "format": "cid"
+        },
+        "subject": {
+          "type": "ref",
+          "ref": "#actorView"
+        },
+        "moderator": {
+          "type": "ref",
+          "ref": "#actorView"
+        },
+        "reason": {
+          "type": "string"
+        },
+        "indexedAt": {
+          "type": "string",
+          "format": "datetime"
+        }
+      }
+    },
+    "requestView": {
+      "type": "object",
+      "required": [
+        "uri",
+        "cid",
+        "requester",
+        "game",
+        "founders",
+        "status",
+        "indexedAt"
+      ],
+      "properties": {
+        "uri": {
+          "type": "string",
+          "format": "at-uri"
+        },
+        "cid": {
+          "type": "string",
+          "format": "cid"
+        },
+        "requester": {
+          "type": "ref",
+          "ref": "#actorView"
+        },
+        "game": {
+          "type": "ref",
+          "ref": "app.speedrunledger-prototype.community.request#gameInfo"
+        },
+        "founders": {
+          "type": "array",
+          "items": {
+            "type": "ref",
+            "ref": "#actorView"
+          }
+        },
+        "note": {
+          "type": "string"
+        },
+        "status": {
+          "type": "string",
+          "knownValues": [
+            "pending",
+            "approved",
+            "denied"
+          ]
+        },
+        "denialReason": {
+          "type": "string"
+        },
+        "community": {
+          "type": "string",
+          "format": "did",
+          "description": "The community created from this request."
+        },
+        "indexedAt": {
+          "type": "string",
+          "format": "datetime"
+        }
+      }
+    },
+    "labelView": {
+      "type": "object",
+      "required": [
+        "val",
+        "src",
+        "cts"
+      ],
+      "description": "A label the community service signed for a moderator; the signed form is served by com.atproto.label.queryLabels.",
+      "properties": {
+        "val": {
+          "type": "string",
+          "knownValues": [
+            "suspected-cheating"
+          ]
+        },
+        "src": {
+          "type": "string",
+          "format": "did",
+          "description": "The labeler: the community service."
+        },
+        "cts": {
+          "type": "string",
+          "format": "datetime"
+        },
+        "moderator": {
+          "type": "ref",
+          "ref": "#actorView"
+        },
+        "reason": {
+          "type": "string"
+        }
+      }
+    },
+    "worldRecordView": {
+      "type": "object",
+      "required": [
+        "run",
+        "category",
+        "game",
+        "community",
+        "rankedMs",
+        "setAt"
+      ],
+      "properties": {
+        "run": {
+          "type": "ref",
+          "ref": "#runView"
+        },
+        "category": {
+          "type": "ref",
+          "ref": "#categoryView"
+        },
+        "game": {
+          "type": "ref",
+          "ref": "#gameView"
+        },
+        "community": {
+          "type": "ref",
+          "ref": "#communityView"
+        },
+        "subcategory": {
+          "type": "array",
+          "items": {
+            "type": "ref",
+            "ref": "app.speedrunledger-prototype.run#variableValue"
+          }
+        },
+        "rankedMs": {
+          "type": "integer"
+        },
+        "previous": {
+          "type": "ref",
+          "ref": "#actorView",
+          "description": "Who held the record before."
+        },
+        "previousRankedMs": {
+          "type": "integer"
+        },
+        "announcement": {
+          "type": "string",
+          "format": "at-uri",
+          "description": "The community's Bluesky post announcing it."
+        },
+        "setAt": {
+          "type": "string",
+          "format": "datetime"
+        }
+      }
+    },
+    "notificationView": {
+      "type": "object",
+      "required": [
+        "reason",
+        "subject",
+        "indexedAt"
+      ],
+      "properties": {
+        "reason": {
+          "type": "string",
+          "knownValues": [
+            "verified",
+            "rejected",
+            "changesRequested",
+            "worldRecord",
+            "worldRecordBeaten",
+            "flagged",
+            "invited",
+            "vote",
+            "deadVideo"
+          ],
+          "description": "verified, rejected, changesRequested: a verdict on your run. worldRecord: your run took first place. worldRecordBeaten: someone took your first place. flagged: a moderator labeled your run. invited: a community invited you to moderate. vote: a proposal is waiting for your vote. deadVideo: a video link on your ranked run looks gone; add a mirror."
+        },
+        "subject": {
+          "type": "string",
+          "format": "at-uri",
+          "description": "The run, membership grant or proposal it is about."
+        },
+        "author": {
+          "type": "ref",
+          "ref": "#actorView",
+          "description": "Who caused it: the reviewer, the new record holder, the proposer."
+        },
+        "community": {
+          "type": "ref",
+          "ref": "#communityView"
+        },
+        "text": {
+          "type": "string",
+          "description": "A verdict's or proposal's reason, or what the run was."
+        },
+        "indexedAt": {
+          "type": "string",
+          "format": "datetime"
+        }
+      }
+    },
+    "videoProblemView": {
+      "type": "object",
+      "required": [
+        "run",
+        "url",
+        "checkedAt"
+      ],
+      "properties": {
+        "run": {
+          "type": "ref",
+          "ref": "#runView"
+        },
+        "url": {
+          "type": "string",
+          "format": "uri"
+        },
+        "httpStatus": {
+          "type": "integer"
+        },
+        "detail": {
+          "type": "string"
+        },
+        "checkedAt": {
+          "type": "string",
+          "format": "datetime"
+        }
+      }
+    }
+  }
+}

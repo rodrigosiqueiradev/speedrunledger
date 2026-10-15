@@ -1,0 +1,83 @@
+{
+  "lexicon": 1,
+  "id": "app.speedrunledger-prototype.getLeaderboard",
+  "defs": {
+    "main": {
+      "type": "query",
+      "description": "The ranked board of a category. Each subcategory variable must have a value; missing ones default to the variable's first value.",
+      "parameters": {
+        "type": "params",
+        "required": [
+          "category"
+        ],
+        "properties": {
+          "category": {
+            "type": "string",
+            "format": "at-uri"
+          },
+          "variables": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "maxLength": 130
+            },
+            "maxLength": 16,
+            "description": "Subcategory values as id=value."
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 500,
+            "default": 100
+          }
+        }
+      },
+      "output": {
+        "encoding": "application/json",
+        "schema": {
+          "type": "object",
+          "required": [
+            "category",
+            "game",
+            "community",
+            "subcategory",
+            "entries"
+          ],
+          "properties": {
+            "category": {
+              "type": "ref",
+              "ref": "app.speedrunledger-prototype.defs#categoryView"
+            },
+            "game": {
+              "type": "ref",
+              "ref": "app.speedrunledger-prototype.defs#gameView"
+            },
+            "community": {
+              "type": "ref",
+              "ref": "app.speedrunledger-prototype.defs#communityView"
+            },
+            "subcategory": {
+              "type": "array",
+              "items": {
+                "type": "ref",
+                "ref": "app.speedrunledger-prototype.run#variableValue"
+              }
+            },
+            "entries": {
+              "type": "array",
+              "items": {
+                "type": "ref",
+                "ref": "app.speedrunledger-prototype.defs#boardEntry"
+              }
+            }
+          }
+        }
+      },
+      "errors": [
+        {
+          "name": "NotFound"
+        }
+      ]
+    }
+  }
+}

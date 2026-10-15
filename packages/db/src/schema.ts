@@ -179,6 +179,12 @@ export interface ProposalTable {
   expires_at: string
   created_at: string
   indexed_at: Timestamp
+  /** When the indexer first saw this proposal; its electorate was fixed then. */
+  first_indexed_at: ColumnType<Date, Date | string, Date | string>
+  /** DIDs that may vote: active moderators when first indexed, minus a kick's target. */
+  electorate: Json<string[]>
+  /** Why the proposal does not count (empty when valid). */
+  problems: Json<string[]>
 }
 
 export interface VoteTable {
@@ -220,7 +226,148 @@ export interface SysadminTable {
   indexed_at: Timestamp
 }
 
+/** One runner's best eligible run on one board. Derived; rebuilt from the tables above. */
+export interface BoardEntryTable {
+  /** Category URI plus the run's value for each subcategory variable. */
+  board_key: string
+  /** The runner's DID (for co-op, the sorted DIDs of the team). */
+  entrant_key: string
+  category_uri: string
+  subcategory: Json<Record<string, string>>
+  rank: number
+  runner_did: string
+  run_uri: string
+  run_cid: string
+  verification_uri: string
+  ranked_ms: number
+  indexed_at: Timestamp
+}
+
+/** OAuth authorization requests in flight (web apps). */
+export interface OAuthStateTable {
+  key: string
+  value: Json<unknown>
+  created_at: Timestamp
+}
+
+/** OAuth sessions of signed-in users, keyed by DID (web apps). */
+export interface OAuthSessionTable {
+  key: string
+  value: Json<unknown>
+  updated_at: Timestamp
+}
+
+export interface CommunityCredentialTable {
+  did: string
+  /** Handle or DID the community service logs in with. */
+  identifier: string
+  pds_url: string
+  /** The account's (app) password, AES-256-GCM encrypted with the service's key. */
+  secret: string
+  /** 'community', or 'platform' for the platform account that lists sysadmins. */
+  kind: ColumnType<string, string | undefined, string>
+  created_at: Timestamp
+  updated_at: Timestamp
+}
+
+export interface InterventionTable {
+  uri: string
+  cid: string
+  community_did: string
+  action: string
+  subject_did: string | null
+  reason: string
+  sysadmin_did: string
+  created_at: string
+  indexed_at: Timestamp
+}
+
+export interface RequestDenialTable {
+  uri: string
+  cid: string
+  /** The repo the record lives in; only the platform account's records count. */
+  owner_did: string
+  request_uri: string
+  reason: string
+  sysadmin_did: string
+  indexed_at: Timestamp
+}
+
+/** The community service's progress carrying out passed proposals. */
+export interface ProposalExecutionTable {
+  proposal_uri: string
+  community_did: string
+  result_uri: string | null
+  error: string | null
+  executed_at: Timestamp | null
+  updated_at: Timestamp
+}
+
+/** A board's new first place, as the indexer saw it happen. */
+export interface WorldRecordTable {
+  id: Generated<number>
+  board_key: string
+  category_uri: string
+  community_did: string
+  run_uri: string
+  runner_did: string
+  ranked_ms: number
+  previous_run_uri: string | null
+  previous_runner_did: string | null
+  previous_ranked_ms: number | null
+  quiet: Generated<boolean>
+  set_at: Generated<Date>
+}
+
+/** The community service's post announcing a world record. */
+export interface AnnouncementTable {
+  world_record_id: number
+  community_did: string
+  game_uri: string
+  post_uri: string | null
+  post_cid: string | null
+  error: string | null
+  posted_at: Timestamp | null
+}
+
+/** A label the community service signed, in order of `seq`. */
+export interface LabelTable {
+  seq: Generated<number>
+  src: string
+  uri: string
+  cid: string | null
+  val: string
+  neg: boolean
+  cts: string
+  sig: Uint8Array
+  community_did: string
+  moderator_did: string
+  reason: string | null
+}
+
+/** The community service's last check of one video link on a ranked run. */
+export interface VideoCheckTable {
+  run_uri: string
+  url: string
+  community_did: string
+  status: 'ok' | 'dead' | 'unknown'
+  http_status: number | null
+  detail: string | null
+  checked_at: Timestamp
+}
+
 export interface DatabaseSchema {
+  video_check: VideoCheckTable
+  world_record: WorldRecordTable
+  announcement: AnnouncementTable
+  label: LabelTable
+  community_credential: CommunityCredentialTable
+  intervention: InterventionTable
+  request_denial: RequestDenialTable
+  proposal_execution: ProposalExecutionTable
+  oauth_state: OAuthStateTable
+  oauth_session: OAuthSessionTable
+  board_entry: BoardEntryTable
   subscription_state: SubscriptionStateTable
   actor: ActorTable
   record: RecordTable

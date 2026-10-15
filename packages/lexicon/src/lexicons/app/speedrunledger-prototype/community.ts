@@ -3,6 +3,7 @@
  */
 
 export * as ban from './community/ban.js'
+export * as intervention from './community/intervention.js'
 export * as member from './community/member.js'
 export * as memberAccept from './community/memberAccept.js'
 export * as profile from './community/profile.js'

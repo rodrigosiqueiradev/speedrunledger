@@ -1,0 +1,42 @@
+{
+  "lexicon": 1,
+  "id": "app.speedrunledger-prototype.getProposal",
+  "defs": {
+    "main": {
+      "type": "query",
+      "description": "One proposal with its tally and every counted vote.",
+      "parameters": {
+        "type": "params",
+        "required": [
+          "uri"
+        ],
+        "properties": {
+          "uri": {
+            "type": "string",
+            "format": "at-uri"
+          }
+        }
+      },
+      "output": {
+        "encoding": "application/json",
+        "schema": {
+          "type": "object",
+          "required": [
+            "proposal"
+          ],
+          "properties": {
+            "proposal": {
+              "type": "ref",
+              "ref": "app.speedrunledger-prototype.defs#proposalView"
+            }
+          }
+        }
+      },
+      "errors": [
+        {
+          "name": "NotFound"
+        }
+      ]
+    }
+  }
+}

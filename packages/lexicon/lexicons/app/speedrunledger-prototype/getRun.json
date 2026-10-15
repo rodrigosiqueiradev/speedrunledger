@@ -1,0 +1,42 @@
+{
+  "lexicon": 1,
+  "id": "app.speedrunledger-prototype.getRun",
+  "defs": {
+    "main": {
+      "type": "query",
+      "description": "One run with its status and every verdict on it.",
+      "parameters": {
+        "type": "params",
+        "required": [
+          "uri"
+        ],
+        "properties": {
+          "uri": {
+            "type": "string",
+            "format": "at-uri"
+          }
+        }
+      },
+      "output": {
+        "encoding": "application/json",
+        "schema": {
+          "type": "object",
+          "required": [
+            "run"
+          ],
+          "properties": {
+            "run": {
+              "type": "ref",
+              "ref": "app.speedrunledger-prototype.defs#runView"
+            }
+          }
+        }
+      },
+      "errors": [
+        {
+          "name": "NotFound"
+        }
+      ]
+    }
+  }
+}

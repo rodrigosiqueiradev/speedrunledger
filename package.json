@@ -13,7 +13,9 @@
     "test": "pnpm -r test",
     "infra:build": "scripts/podman-build.sh",
     "infra:up": "scripts/dev-up.sh",
-    "infra:down": "scripts/dev-down.sh"
+    "infra:down": "scripts/dev-down.sh",
+    "ledger-admin": "scripts/ledger-admin.sh",
+    "seed": "scripts/seed-demo.sh"
   },
   "devDependencies": {
     "@types/node": "^22.20.5",

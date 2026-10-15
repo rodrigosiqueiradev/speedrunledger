@@ -2,7 +2,8 @@
 #
 # Pods share the host network so every service, the tests and the browser
 # see the same URLs (localhost:2582 PLC, localhost:2583 PDS,
-# localhost:5433 Postgres). The indexer follows the PDS's own event stream,
+# localhost:5433 Postgres, localhost:2584 AppView, localhost:2586 community service,
+# 127.0.0.1:2585 Runner app, 127.0.0.1:2587 Moderator app). The indexer follows the PDS's own event stream,
 # since there is no relay locally. Secrets come from the `ledger-dev` podman secret
 # that dev-up.sh generates on first run.
 apiVersion: v1
@@ -119,3 +120,130 @@ spec:
     - name: pds-data
       persistentVolumeClaim:
         claimName: ledger-pds-data
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: ledger-web
+  labels:
+    app: speedrunledger
+spec:
+  hostNetwork: true
+  restartPolicy: Always
+  containers:
+    - name: appview
+      image: localhost/speedrunledger/appview:dev
+      env:
+        - name: APPVIEW_PORT
+          value: "2584"
+        - name: DATABASE_URL
+          valueFrom:
+            secretKeyRef:
+              name: ledger-dev
+              key: databaseUrl
+    - name: runner-web
+      image: localhost/speedrunledger/runner-web:dev
+      command: ["node", "--enable-source-maps", "dist/server/bin.js"]
+      env:
+        - name: RUNNER_PORT
+          value: "2585"
+        - name: RUNNER_PUBLIC_URL
+          value: http://127.0.0.1:2585
+        - name: APPVIEW_URL
+          value: http://localhost:2584
+        - name: PDS_URL
+          value: http://localhost:2583
+        - name: PLC_URL
+          value: http://localhost:2582
+        - name: DATABASE_URL
+          valueFrom:
+            secretKeyRef:
+              name: ledger-dev
+              key: databaseUrl
+        - name: COOKIE_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: ledger-dev
+              key: cookieSecret
+    - name: moderator-web
+      image: localhost/speedrunledger/moderator-web:dev
+      command: ["node", "--enable-source-maps", "dist/server/bin.js"]
+      env:
+        - name: MODERATOR_PORT
+          value: "2587"
+        - name: MODERATOR_PUBLIC_URL
+          value: http://127.0.0.1:2587
+        - name: APPVIEW_URL
+          value: http://localhost:2584
+        - name: COMMUNITY_SERVICE_URL
+          value: http://localhost:2586
+        - name: COMMUNITY_SERVICE_DID
+          value: did:web:localhost%3A2586
+        - name: PDS_URL
+          value: http://localhost:2583
+        - name: PLC_URL
+          value: http://localhost:2582
+        - name: DATABASE_URL
+          valueFrom:
+            secretKeyRef:
+              name: ledger-dev
+              key: databaseUrl
+        - name: COOKIE_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: ledger-dev
+              key: cookieSecret
+---
+# The only pod holding community account sessions, kept apart from the web pod.
+apiVersion: v1
+kind: Pod
+metadata:
+  name: ledger-community
+  labels:
+    app: speedrunledger
+spec:
+  hostNetwork: true
+  restartPolicy: Always
+  containers:
+    - name: community-service
+      image: localhost/speedrunledger/community-service:dev
+      env:
+        - name: COMMUNITY_SERVICE_PORT
+          value: "2586"
+        - name: COMMUNITY_SERVICE_DID
+          value: did:web:localhost%3A2586
+        - name: PLC_URL
+          value: http://localhost:2582
+        - name: DATABASE_URL
+          valueFrom:
+            secretKeyRef:
+              name: ledger-dev
+              key: databaseUrl
+        - name: COMMUNITY_SECRET_KEY
+          valueFrom:
+            secretKeyRef:
+              name: ledger-dev
+              key: communitySecretKey
+        - name: COMMUNITY_ADMIN_TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: ledger-dev
+              key: communityAdminToken
+        - name: PDS_URL
+          value: http://localhost:2583
+        - name: PDS_ADMIN_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: ledger-dev
+              key: pdsAdminPassword
+        - name: RUNNER_PUBLIC_URL
+          value: http://127.0.0.1:2585
+        - name: FEED_SERVICE_DID
+          value: did:web:localhost%3A2584
+        - name: LABELER_SIGNING_KEY
+          valueFrom:
+            secretKeyRef:
+              name: ledger-dev
+              key: labelerSigningKey
+        - name: VIDEO_CHECK_INTERVAL_MS
+          value: "604800000"

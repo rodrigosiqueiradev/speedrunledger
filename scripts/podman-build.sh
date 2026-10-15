@@ -19,17 +19,20 @@ fi
 
 build() {
   local name=$1 context=$2 file=${3:-$2/Containerfile}
+  shift 3 || shift $#
   echo "==> building localhost/speedrunledger/${name}"
-  podman build "${build_args[@]}" -t "localhost/speedrunledger/${name}:dev" -f "$file" "$context"
+  podman build "${build_args[@]}" "$@" -t "localhost/speedrunledger/${name}:dev" -f "$file" "$context"
 }
 
+service() { build "$1" . infra/service.Containerfile --build-arg "PACKAGE=$1"; }
+
 targets=("$@")
-if [[ ${#targets[@]} -eq 0 ]]; then targets=(plc pds indexer); fi
+if [[ ${#targets[@]} -eq 0 ]]; then targets=(plc pds indexer appview community-service runner-web moderator-web); fi
 for t in "${targets[@]}"; do
   case "$t" in
     plc) build plc infra/plc ;;
     pds) build pds infra/pds ;;
-    indexer) build indexer . packages/indexer/Containerfile ;;
+    indexer | appview | community-service | runner-web | moderator-web) service "$t" ;;
     *) echo "unknown image: $t" >&2; exit 1 ;;
   esac
 done

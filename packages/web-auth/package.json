@@ -1,0 +1,39 @@
+{
+  "name": "@speedrunledger/web-auth",
+  "version": "0.0.0",
+  "private": true,
+  "license": "MIT",
+  "type": "module",
+  "exports": {
+    ".": {
+      "@speedrunledger/source": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@atproto/lex": "0.3.14",
+    "@atproto/oauth-client-node": "0.5.9",
+    "@speedrunledger/db": "workspace:*",
+    "express": "5.3.0",
+    "iron-session": "9.0.1",
+    "kysely": "0.29.6"
+  },
+  "devDependencies": {
+    "@types/express": "5.0.6",
+    "vite": "8.3.4"
+  },
+  "description": "Server code shared by the web apps: atproto OAuth sign-in, the AppView proxy and client serving.",
+  "peerDependencies": {
+    "vite": "8.3.4"
+  },
+  "peerDependenciesMeta": {
+    "vite": {
+      "optional": true
+    }
+  }
+}

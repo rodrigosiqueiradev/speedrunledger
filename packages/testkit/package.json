@@ -9,6 +9,11 @@
       "@speedrunledger/source": "./src/index.ts",
       "types": "./dist/index.d.ts",
       "default": "./dist/index.js"
+    },
+    "./browser": {
+      "@speedrunledger/source": "./src/browser.ts",
+      "types": "./dist/browser.d.ts",
+      "default": "./dist/browser.js"
     }
   },
   "scripts": {
@@ -21,6 +26,15 @@
     "pg": "8.23.1"
   },
   "devDependencies": {
-    "@types/pg": "^8.23.1"
+    "@types/pg": "^8.23.1",
+    "playwright-core": "^1.64.1"
+  },
+  "peerDependencies": {
+    "playwright-core": "^1.64.1"
+  },
+  "peerDependenciesMeta": {
+    "playwright-core": {
+      "optional": true
+    }
   }
 }

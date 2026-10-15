@@ -1,0 +1,45 @@
+{
+  "lexicon": 1,
+  "id": "app.speedrunledger-prototype.listModerators",
+  "defs": {
+    "main": {
+      "type": "query",
+      "description": "A community's moderators, active and invited, with when each last did something.",
+      "parameters": {
+        "type": "params",
+        "required": [
+          "community"
+        ],
+        "properties": {
+          "community": {
+            "type": "string",
+            "format": "did"
+          }
+        }
+      },
+      "output": {
+        "encoding": "application/json",
+        "schema": {
+          "type": "object",
+          "required": [
+            "moderators"
+          ],
+          "properties": {
+            "moderators": {
+              "type": "array",
+              "items": {
+                "type": "ref",
+                "ref": "app.speedrunledger-prototype.defs#moderatorView"
+              }
+            }
+          }
+        }
+      },
+      "errors": [
+        {
+          "name": "NotFound"
+        }
+      ]
+    }
+  }
+}

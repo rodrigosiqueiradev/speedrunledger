@@ -1,0 +1,99 @@
+{
+  "lexicon": 1,
+  "id": "app.speedrunledger-prototype.moderation.createVerdict",
+  "defs": {
+    "main": {
+      "type": "procedure",
+      "description": "Served by the community service. Writes a verification record into the run's community repo, with the caller as reviewer. The caller authenticates with a service-auth JWT from their own PDS and must be an active, unbanned moderator of that community who is not a runner on the run. When the category needs several approvals, each moderator approves a version once, and an approval without verifiedTimes keeps an earlier approver's retime.",
+      "input": {
+        "encoding": "application/json",
+        "schema": {
+          "type": "object",
+          "required": [
+            "run",
+            "status"
+          ],
+          "properties": {
+            "run": {
+              "type": "ref",
+              "ref": "com.atproto.repo.strongRef",
+              "description": "The run, pinned to the version the moderator reviewed."
+            },
+            "status": {
+              "type": "string",
+              "knownValues": [
+                "verified",
+                "rejected",
+                "changesRequested"
+              ]
+            },
+            "reason": {
+              "type": "string",
+              "maxLength": 10000,
+              "maxGraphemes": 1000,
+              "description": "Required when rejecting or requesting changes."
+            },
+            "verifiedTimes": {
+              "type": "ref",
+              "ref": "app.speedrunledger-prototype.run#times",
+              "description": "A retime; only with status verified."
+            }
+          }
+        }
+      },
+      "output": {
+        "encoding": "application/json",
+        "schema": {
+          "type": "object",
+          "required": [
+            "uri",
+            "cid"
+          ],
+          "properties": {
+            "uri": {
+              "type": "string",
+              "format": "at-uri"
+            },
+            "cid": {
+              "type": "string",
+              "format": "cid"
+            }
+          }
+        }
+      },
+      "errors": [
+        {
+          "name": "RunNotFound",
+          "description": "The run is not in the index yet, or was deleted."
+        },
+        {
+          "name": "RunChanged",
+          "description": "The run was edited after the moderator opened it."
+        },
+        {
+          "name": "RunInvalid",
+          "description": "The run fails its category's checks, so it cannot be verified."
+        },
+        {
+          "name": "NotModerator",
+          "description": "The caller is not an active moderator of the run's community."
+        },
+        {
+          "name": "Banned"
+        },
+        {
+          "name": "OwnRun",
+          "description": "Moderators cannot judge runs they ran in."
+        },
+        {
+          "name": "CommunityNotManaged",
+          "description": "The community service holds no session for this community."
+        },
+        {
+          "name": "AlreadyApproved",
+          "description": "The caller already verified this version; a category needing several approvals needs other moderators."
+        }
+      ]
+    }
+  }
+}

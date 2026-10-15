@@ -2,8 +2,15 @@ import { Kysely, PostgresDialect } from 'kysely'
 import { type Migration, type MigrationProvider, Migrator } from 'kysely/migration'
 import pg from 'pg'
 import * as init from './migrations/001-init.js'
+import * as boards from './migrations/002-boards.js'
+import * as oauth from './migrations/003-oauth.js'
+import * as communitySessions from './migrations/004-community-sessions.js'
+import * as governance from './migrations/005-governance.js'
+import * as reach from './migrations/006-reach.js'
+import * as videoChecks from './migrations/007-video-checks.js'
 import type { DatabaseSchema } from './schema.js'
 
+export * from './governance.js'
 export * from './schema.js'
 
 export type Database = Kysely<DatabaseSchema>
@@ -12,15 +19,23 @@ export type Database = Kysely<DatabaseSchema>
 pg.types.setTypeParser(pg.types.builtins.INT8, (value) => Number.parseInt(value, 10))
 
 export function createDb(connectionString: string, opts: { max?: number } = {}): Database {
-  return new Kysely<DatabaseSchema>({
-    dialect: new PostgresDialect({
-      pool: new pg.Pool({ connectionString, max: opts.max ?? 10 }),
-    }),
+  const pool = new pg.Pool({ connectionString, max: opts.max ?? 10 })
+  // An idle connection the server closes (a restart, a dropped database) is
+  // removed from the pool; without a listener the error would crash the process.
+  pool.on('error', (err) => {
+    if ((err as { code?: string }).code !== '57P01') console.error('idle database connection failed', err)
   })
+  return new Kysely<DatabaseSchema>({ dialect: new PostgresDialect({ pool }) })
 }
 
 const migrations: Record<string, Migration> = {
   '001-init': init,
+  '002-boards': boards,
+  '003-oauth': oauth,
+  '004-community-sessions': communitySessions,
+  '005-governance': governance,
+  '006-reach': reach,
+  '007-video-checks': videoChecks,
 }
 
 class StaticMigrationProvider implements MigrationProvider {
@@ -42,3 +57,14 @@ export async function migrateToLatest(db: Kysely<any>): Promise<void> {
 
 /** Encodes a value for a jsonb column. */
 export const json = (value: unknown): string => JSON.stringify(value)
+
+/**
+ * Identifies one board: a category plus one value for each of its
+ * subcategory variables, e.g. `at://…/category/3k…?version=JP`.
+ */
+export function boardKey(categoryUri: string, subcategory: Record<string, string>): string {
+  const params = Object.keys(subcategory)
+    .sort()
+    .map((id) => `${encodeURIComponent(id)}=${encodeURIComponent(subcategory[id])}`)
+  return params.length === 0 ? categoryUri : `${categoryUri}?${params.join('&')}`
+}

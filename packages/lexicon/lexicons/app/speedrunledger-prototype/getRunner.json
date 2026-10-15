@@ -1,0 +1,56 @@
+{
+  "lexicon": 1,
+  "id": "app.speedrunledger-prototype.getRunner",
+  "defs": {
+    "main": {
+      "type": "query",
+      "description": "A runner and their runs, newest first.",
+      "parameters": {
+        "type": "params",
+        "required": [
+          "actor"
+        ],
+        "properties": {
+          "actor": {
+            "type": "string",
+            "format": "at-identifier"
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100,
+            "default": 50
+          }
+        }
+      },
+      "output": {
+        "encoding": "application/json",
+        "schema": {
+          "type": "object",
+          "required": [
+            "actor",
+            "runs"
+          ],
+          "properties": {
+            "actor": {
+              "type": "ref",
+              "ref": "app.speedrunledger-prototype.defs#actorView"
+            },
+            "runs": {
+              "type": "array",
+              "items": {
+                "type": "ref",
+                "ref": "app.speedrunledger-prototype.defs#runView"
+              }
+            }
+          }
+        }
+      },
+      "errors": [
+        {
+          "name": "NotFound"
+        }
+      ]
+    }
+  }
+}

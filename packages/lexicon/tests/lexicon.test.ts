@@ -8,8 +8,10 @@ const ref = {
 const createdAt = '2026-10-14T12:00:00.000Z'
 
 describe('lexicons', () => {
-  it('defines the fourteen record types from the design', () => {
-    expect(collections).toHaveLength(14)
+  it('defines the design’s fourteen record types plus interventions and request denials', () => {
+    expect(collections).toHaveLength(16)
+    expect(collections).toContain(ids.communityIntervention)
+    expect(collections).toContain(ids.platformRequestDenial)
     for (const nsid of collections) expect(nsid.startsWith('app.speedrunledger-prototype.')).toBe(true)
     expect(isLedgerCollection('app.bsky.feed.post')).toBe(false)
   })

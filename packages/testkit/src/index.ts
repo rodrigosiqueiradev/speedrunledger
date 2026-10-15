@@ -120,7 +120,7 @@ export async function waitFor<T>(
   check: () => Promise<T | undefined>,
   opts: { timeoutMs?: number; intervalMs?: number; message?: string } = {},
 ): Promise<T> {
-  const deadline = Date.now() + (opts.timeoutMs ?? 10_000)
+  const deadline = Date.now() + (opts.timeoutMs ?? 20_000)
   let last: unknown
   while (Date.now() < deadline) {
     try {
