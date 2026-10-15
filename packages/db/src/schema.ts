@@ -251,7 +251,19 @@ export interface OAuthSessionTable {
   updated_at: Timestamp
 }
 
+export interface CommunityCredentialTable {
+  did: string
+  /** Handle or DID the community service logs in with. */
+  identifier: string
+  pds_url: string
+  /** The account's (app) password, AES-256-GCM encrypted with the service's key. */
+  secret: string
+  created_at: Timestamp
+  updated_at: Timestamp
+}
+
 export interface DatabaseSchema {
+  community_credential: CommunityCredentialTable
   oauth_state: OAuthStateTable
   oauth_session: OAuthSessionTable
   board_entry: BoardEntryTable

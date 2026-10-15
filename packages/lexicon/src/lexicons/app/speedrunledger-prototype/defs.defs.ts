@@ -5,6 +5,7 @@
 import { l } from '@atproto/lex'
 import * as SpeedrunledgerPrototypeCategory from './category.defs.js'
 import * as SpeedrunledgerPrototypeRun from './run.defs.js'
+import * as RepoStrongRef from '../../com/atproto/repo/strongRef.defs.js'
 
 const $nsid = 'app.speedrunledger-prototype.defs'
 
@@ -363,3 +364,61 @@ const boardEntry = /*#__PURE__*/ l.typedObject<BoardEntry>(
 )
 
 export { boardEntry }
+
+type QueueItem = {
+  $type?: 'app.speedrunledger-prototype.defs#queueItem'
+  run: RunView
+  category: CategoryView
+
+  /**
+   * Distinct moderators who verified the current version so far.
+   */
+  approvals: number
+  requiredApprovals: number
+  approvedBy?: l.DidString[]
+}
+
+export type { QueueItem }
+
+const queueItem = /*#__PURE__*/ l.typedObject<QueueItem>(
+  $nsid,
+  'queueItem',
+  /*#__PURE__*/ l.object({
+    run: /*#__PURE__*/ l.ref<RunView>((() => runView) as any),
+    category: /*#__PURE__*/ l.ref<CategoryView>((() => categoryView) as any),
+    approvals: /*#__PURE__*/ l.integer(),
+    requiredApprovals: /*#__PURE__*/ l.integer(),
+    approvedBy: /*#__PURE__*/ l.optional(
+      /*#__PURE__*/ l.array(/*#__PURE__*/ l.string({ format: 'did' })),
+    ),
+  }),
+)
+
+export { queueItem }
+
+type MembershipView = {
+  $type?: 'app.speedrunledger-prototype.defs#membershipView'
+  community: CommunityView
+
+  /**
+   * invited until the account writes its memberAccept.
+   */
+  status: 'active' | 'invited' | l.UnknownString
+  grant: RepoStrongRef.Main
+}
+
+export type { MembershipView }
+
+const membershipView = /*#__PURE__*/ l.typedObject<MembershipView>(
+  $nsid,
+  'membershipView',
+  /*#__PURE__*/ l.object({
+    community: /*#__PURE__*/ l.ref<CommunityView>((() => communityView) as any),
+    status: /*#__PURE__*/ l.string<{ knownValues: ['active', 'invited'] }>(),
+    grant: /*#__PURE__*/ l.ref<RepoStrongRef.Main>(
+      (() => RepoStrongRef.main) as any,
+    ),
+  }),
+)
+
+export { membershipView }

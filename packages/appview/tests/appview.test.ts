@@ -111,6 +111,55 @@ describe('appview', () => {
     ])
   })
 
+  it('lists the review queue and a moderator’s memberships', async () => {
+    const category = community.categories.seventyStar
+    const runner = await createAccount(env, 'q')
+    const first = await putRecord(runner, ids.run, runRecord(category, { times: { realTimeMs: 2_900_000 } }))
+    const second = await putRecord(runner, ids.run, runRecord(category, { times: { realTimeMs: 2_800_000 } }))
+    const broken = await putRecord(runner, ids.run, runRecord(category, { times: {} }))
+    const queue = async () =>
+      (await xrpc('app.speedrunledger-prototype.listReviewQueue', { community: community.account.did, category: category.uri }))
+        .body.runs.map((item: any) => item.run.uri)
+    // Oldest first; the run missing its primary time is not reviewable.
+    await waitFor(async () => ((await queue()).length === 2 ? true : undefined))
+    expect(await queue()).toEqual([first.uri, second.uri])
+    expect(broken.uri).not.toBe(first.uri)
+
+    const page = await xrpc('app.speedrunledger-prototype.listReviewQueue', {
+      community: community.account.did,
+      category: category.uri,
+      limit: '1',
+    })
+    expect(page.body.runs[0]).toMatchObject({ approvals: 0, requiredApprovals: 1, category: { name: '70 Star' } })
+    const next = await xrpc('app.speedrunledger-prototype.listReviewQueue', {
+      community: community.account.did,
+      category: category.uri,
+      limit: '1',
+      cursor: page.body.cursor,
+    })
+    expect(next.body.runs.map((item: any) => item.run.uri)).toEqual([second.uri])
+
+    // A verdict takes a run out of the queue, whatever it says.
+    await putRecord(community.account, ids.verification, {
+      subject: first,
+      status: 'changesRequested',
+      reason: 'No timer visible',
+      reviewer: community.moderators[0].account.did,
+      createdAt: now(),
+    })
+    await waitFor(async () => ((await queue()).length === 1 ? true : undefined))
+    expect(await queue()).toEqual([second.uri])
+
+    const memberships = await xrpc('app.speedrunledger-prototype.listMemberships', {
+      actor: community.moderators[0].account.did,
+    })
+    expect(memberships.body.memberships).toEqual([
+      expect.objectContaining({ status: 'active', community: expect.objectContaining({ did: community.account.did }) }),
+    ])
+    const none = await xrpc('app.speedrunledger-prototype.listMemberships', { actor: runner.did })
+    expect(none.body.memberships).toEqual([])
+  })
+
   it('returns XRPC errors for unknown records and bad parameters', async () => {
     const missing = await xrpc('app.speedrunledger-prototype.getLeaderboard', {
       category: `at://${community.account.did}/${ids.category}/3mzzzzzzzzz2b`,

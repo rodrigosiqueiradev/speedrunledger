@@ -1,4 +1,3 @@
-import { createServer } from 'node:net'
 import { AppViewServer } from '@speedrunledger/appview'
 import { IndexerService, readConfig as readIndexerConfig } from '@speedrunledger/indexer'
 import { ids, ledger } from '@speedrunledger/lexicon'
@@ -13,15 +12,14 @@ import {
   setupCommunity,
   type TestCommunity,
 } from '@speedrunledger/testkit'
-import { type Browser, chromium, type Page } from 'playwright-core'
+import { chromiumPath, freePort, signInWithOAuth } from '@speedrunledger/testkit/browser'
+import { type Browser, chromium } from 'playwright-core'
 import { pino } from 'pino'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { RunnerWeb } from '../server/index.js'
 
 // A runner signs in through the local PDS's OAuth pages, submits a run from
 // the browser, a moderator verifies it, and it shows up ranked on the board.
-
-const chromiumPath = process.env.CHROMIUM_PATH ?? '/opt/pw-browsers/chromium'
 
 let env: DevEnv
 let indexer: IndexerService
@@ -30,15 +28,6 @@ let runnerWeb: RunnerWeb
 let browser: Browser
 let dropDb: () => Promise<void>
 let community: TestCommunity
-
-const freePort = () =>
-  new Promise<number>((resolve, reject) => {
-    const srv = createServer().listen(0, '127.0.0.1', () => {
-      const { port } = srv.address() as { port: number }
-      srv.close(() => resolve(port))
-    })
-    srv.on('error', reject)
-  })
 
 beforeAll(async () => {
   env = loadDevEnv()
@@ -78,24 +67,11 @@ afterAll(async () => {
   await dropDb?.()
 })
 
-async function signIn(page: Page, handle: string, password: string) {
-  await page.goto(runnerWeb.config.publicUrl)
-  await page.fill('input[aria-label="Your handle"]', handle)
-  await page.click('button:has-text("Sign in")')
-  // The PDS's own sign-in and consent pages.
-  await page.waitForURL((url) => url.port === new URL(env.pdsUrl).port)
-  await page.fill('input[name=password]', password)
-  await page.click('button[type=submit]')
-  await page.click('button:has-text("Authorize")')
-  await page.waitForURL((url) => url.origin === runnerWeb.config.publicUrl)
-  await page.getByText(handle).first().waitFor()
-}
-
 describe('runner app', () => {
   it('takes a run from sign-in to a ranked board entry', async () => {
     const runner = await createAccount(env, 'e2e')
     const page = await browser.newPage()
-    await signIn(page, runner.handle, runner.password)
+    await signInWithOAuth(page, { appUrl: runnerWeb.config.publicUrl, pdsUrl: env.pdsUrl, handle: runner.handle, password: runner.password })
 
     const category = community.categories.sixteenStar
     const boardUrl = `${runnerWeb.config.publicUrl}/board?category=${encodeURIComponent(category.uri)}`

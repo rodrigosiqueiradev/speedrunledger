@@ -3,7 +3,7 @@ import type { RunView } from '@speedrunledger/lexicon'
 import { api } from '../api.js'
 import type { Me } from '../main.js'
 import { boardHref, Link, navigate, runHref } from '../router.js'
-import { formatMs, parseTime } from '../time.js'
+import { formatMs, parseTime } from '@speedrunledger/web-ui'
 
 type Board = Awaited<ReturnType<typeof api.getLeaderboard>>
 const timeFields = { realTime: 'realTimeMs', realTimeNoLoads: 'realTimeNoLoadsMs', gameTime: 'gameTimeMs' } as const

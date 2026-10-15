@@ -1,0 +1,34 @@
+{
+  "name": "@speedrunledger/community-service",
+  "version": "0.0.0",
+  "private": true,
+  "license": "MIT",
+  "type": "module",
+  "exports": {
+    ".": {
+      "@speedrunledger/source": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run",
+    "start": "node dist/bin.js",
+    "dev": "tsx --conditions=@speedrunledger/source src/bin.ts"
+  },
+  "dependencies": {
+    "@atproto/api": "0.27.0",
+    "@atproto/lex": "0.3.14",
+    "@atproto/lex-server": "0.1.21",
+    "@speedrunledger/db": "workspace:*",
+    "@speedrunledger/lexicon": "workspace:*",
+    "kysely": "0.29.6",
+    "pino": "10.4.0"
+  },
+  "devDependencies": {
+    "@speedrunledger/indexer": "workspace:*",
+    "@speedrunledger/testkit": "workspace:*"
+  }
+}

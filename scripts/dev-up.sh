@@ -27,8 +27,13 @@ ENV
   echo "generated dev secrets in $env_file"
 fi
 # Secrets added after a dev.env was first generated.
-if ! grep -q '^COOKIE_SECRET=' "$env_file"; then
-  echo "COOKIE_SECRET=$(openssl rand -hex 32)" >> "$env_file"
+for key in COOKIE_SECRET COMMUNITY_SECRET_KEY COMMUNITY_ADMIN_TOKEN; do
+  if ! grep -q "^$key=" "$env_file"; then
+    echo "$key=$(openssl rand -hex 32)" >> "$env_file"
+  fi
+done
+if ! grep -q '^COMMUNITY_SERVICE_URL=' "$env_file"; then
+  echo "COMMUNITY_SERVICE_URL=http://localhost:2586" >> "$env_file"
 fi
 # shellcheck disable=SC1090
 source "$env_file"
@@ -47,13 +52,19 @@ data:
   pdsAdminPassword: $(b64 "$PDS_ADMIN_PASSWORD")
   pdsRotationKeyHex: $(b64 "$PDS_PLC_ROTATION_KEY_K256_PRIVATE_KEY_HEX")
   cookieSecret: $(b64 "$COOKIE_SECRET")
+  communitySecretKey: $(b64 "$COMMUNITY_SECRET_KEY")
+  communityAdminToken: $(b64 "$COMMUNITY_ADMIN_TOKEN")
 YAML
 )
 podman secret rm ledger-dev >/dev/null 2>&1 || true
 printf '%s\n' "$secret_yaml" | podman kube play - >/dev/null
 
-for image in plc pds indexer appview runner-web; do
-  if ! podman image exists "localhost/speedrunledger/$image:dev"; then
+# Images are built once; `dev-up.sh --build` rebuilds our own services after code changes.
+rebuild=false
+[[ "${1:-}" == "--build" ]] && rebuild=true
+for image in plc pds indexer appview community-service runner-web moderator-web; do
+  case "$image" in plc | pds) own=false ;; *) own=true ;; esac
+  if ! podman image exists "localhost/speedrunledger/$image:dev" || { $rebuild && $own; }; then
     scripts/podman-build.sh "$image"
   fi
 done
@@ -72,6 +83,10 @@ wait_for() {
 wait_for plc http://localhost:2582/_health
 wait_for pds http://localhost:2583/xrpc/_health
 wait_for appview "http://localhost:2584/xrpc/app.speedrunledger-prototype.listCommunities"
+wait_for community-service http://localhost:2586/_health
 wait_for runner-web http://127.0.0.1:2585/
-echo "Runner app: http://127.0.0.1:2585 (open it at 127.0.0.1, not localhost, for OAuth)"
+wait_for moderator-web http://127.0.0.1:2587/
+echo "Runner app:    http://127.0.0.1:2585"
+echo "Moderator app: http://127.0.0.1:2587"
+echo "(open the apps at 127.0.0.1, not localhost, for OAuth)"
 echo "env for tools and tests: source $env_file"

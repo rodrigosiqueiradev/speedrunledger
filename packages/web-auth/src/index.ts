@@ -5,6 +5,7 @@ import express, { type NextFunction, type Request, type Response, type Router } 
 import { getIronSession } from 'iron-session'
 import { createStores } from './stores.js'
 
+export { serveClient, xrpcProxy } from './app.js'
 export { createStores } from './stores.js'
 
 export interface WebAuthConfig {

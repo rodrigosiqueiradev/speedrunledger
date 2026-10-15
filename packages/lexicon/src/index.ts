@@ -149,3 +149,5 @@ export type CommunityDetail = LexDefs.CommunityDetail
 export type VerdictView = LexDefs.VerdictView
 export type RunView = LexDefs.RunView
 export type BoardEntry = LexDefs.BoardEntry
+export type QueueItem = LexDefs.QueueItem
+export type MembershipView = LexDefs.MembershipView

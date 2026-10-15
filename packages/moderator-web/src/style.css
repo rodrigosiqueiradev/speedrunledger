@@ -1,0 +1,11 @@
+.brand small { font-weight: 500; font-size: 0.8rem; margin-left: 4px; }
+table.queue { width: 100%; border-collapse: collapse; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+.queue th, .queue td { text-align: left; padding: 9px 12px; border-bottom: 1px solid var(--line); vertical-align: top; }
+.queue th { font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); }
+.queue .time { font-variant-numeric: tabular-nums; font-family: ui-monospace, monospace; }
+.verdict-form fieldset { border: 1px solid var(--line); border-radius: 8px; padding: 10px 14px; display: flex; gap: 16px; flex-wrap: wrap; }
+.verdict-form legend { font-weight: 600; font-size: 0.92rem; padding: 0 4px; }
+.notice.ok { border-color: var(--ok); background: color-mix(in srgb, var(--ok) 8%, transparent); }
+@media (max-width: 600px) {
+  .queue th:nth-child(4), .queue td:nth-child(4) { display: none; }
+}

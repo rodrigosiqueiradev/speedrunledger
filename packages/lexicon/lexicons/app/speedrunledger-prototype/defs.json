@@ -395,6 +395,65 @@
           "ref": "#runView"
         }
       }
+    },
+    "queueItem": {
+      "type": "object",
+      "required": [
+        "run",
+        "category",
+        "approvals",
+        "requiredApprovals"
+      ],
+      "properties": {
+        "run": {
+          "type": "ref",
+          "ref": "#runView"
+        },
+        "category": {
+          "type": "ref",
+          "ref": "#categoryView"
+        },
+        "approvals": {
+          "type": "integer",
+          "description": "Distinct moderators who verified the current version so far."
+        },
+        "requiredApprovals": {
+          "type": "integer"
+        },
+        "approvedBy": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "format": "did"
+          }
+        }
+      }
+    },
+    "membershipView": {
+      "type": "object",
+      "required": [
+        "community",
+        "status",
+        "grant"
+      ],
+      "properties": {
+        "community": {
+          "type": "ref",
+          "ref": "#communityView"
+        },
+        "status": {
+          "type": "string",
+          "knownValues": [
+            "active",
+            "invited"
+          ],
+          "description": "invited until the account writes its memberAccept."
+        },
+        "grant": {
+          "type": "ref",
+          "ref": "com.atproto.repo.strongRef"
+        }
+      }
     }
   }
 }

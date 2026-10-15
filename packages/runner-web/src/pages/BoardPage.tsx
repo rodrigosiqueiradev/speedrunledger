@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { api } from '../api.js'
 import type { Me } from '../main.js'
 import { boardHref, Link, navigate, runHref, submitHref } from '../router.js'
-import { formatMs } from '../time.js'
+import { formatMs } from '@speedrunledger/web-ui'
 
 type Board = Awaited<ReturnType<typeof api.getLeaderboard>>
 

@@ -6,34 +6,13 @@ import { HomePage } from './pages/HomePage.js'
 import { MyRunsPage } from './pages/MyRunsPage.js'
 import { RunPage } from './pages/RunPage.js'
 import { SubmitPage } from './pages/SubmitPage.js'
+import { SignIn } from '@speedrunledger/web-ui'
 import { Link, useLocation } from './router.js'
-import './style.css'
+import '@speedrunledger/web-ui/style.css'
 
 export interface Me {
   did: string
   handle?: string
-}
-
-function SignIn() {
-  const [handle, setHandle] = useState('')
-  return (
-    <form
-      className="signin"
-      onSubmit={(e) => {
-        e.preventDefault()
-        window.location.href = `/api/login?${new URLSearchParams({ handle })}`
-      }}
-    >
-      <input
-        aria-label="Your handle"
-        placeholder="you.bsky.social"
-        value={handle}
-        onChange={(e) => setHandle(e.target.value)}
-        autoComplete="username"
-      />
-      <button type="submit">Sign in</button>
-    </form>
-  )
 }
 
 function App() {

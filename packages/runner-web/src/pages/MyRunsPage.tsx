@@ -1,10 +1,9 @@
 import { useEffect, useState } from 'react'
 import type { RunView } from '@speedrunledger/lexicon'
-import { ApiError, api } from '../api.js'
+import { api } from '../api.js'
 import type { Me } from '../main.js'
 import { Link, runHref } from '../router.js'
-import { formatMs } from '../time.js'
-import { StatusBadge } from './RunPage.js'
+import { formatMs, StatusBadge } from '@speedrunledger/web-ui'
 
 export function MyRunsPage({ me }: { me: Me | null | undefined }) {
   const [runs, setRuns] = useState<RunView[]>()
@@ -12,7 +11,7 @@ export function MyRunsPage({ me }: { me: Me | null | undefined }) {
     if (!me) return
     api.getRunner(me.did).then(
       (r) => setRuns(r.runs),
-      (e) => (e instanceof ApiError && e.status === 404 ? setRuns([]) : setRuns([])),
+      () => setRuns([]),
     )
   }, [me])
 

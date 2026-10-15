@@ -49,6 +49,37 @@ importers:
         specifier: 10.4.0
         version: 10.4.0
 
+  packages/community-service:
+    dependencies:
+      '@atproto/api':
+        specifier: 0.27.0
+        version: 0.27.0
+      '@atproto/lex':
+        specifier: 0.3.14
+        version: 0.3.14
+      '@atproto/lex-server':
+        specifier: 0.1.21
+        version: 0.1.21
+      '@speedrunledger/db':
+        specifier: workspace:*
+        version: link:../db
+      '@speedrunledger/lexicon':
+        specifier: workspace:*
+        version: link:../lexicon
+      kysely:
+        specifier: 0.29.6
+        version: 0.29.6
+      pino:
+        specifier: 10.4.0
+        version: 10.4.0
+    devDependencies:
+      '@speedrunledger/indexer':
+        specifier: workspace:*
+        version: link:../indexer
+      '@speedrunledger/testkit':
+        specifier: workspace:*
+        version: link:../testkit
+
   packages/db:
     dependencies:
       kysely:
@@ -111,6 +142,73 @@ importers:
         specifier: 0.7.6
         version: 0.7.6
 
+  packages/moderator-web:
+    dependencies:
+      '@atproto/oauth-client-node':
+        specifier: 0.5.9
+        version: 0.5.9
+      '@speedrunledger/db':
+        specifier: workspace:*
+        version: link:../db
+      '@speedrunledger/lexicon':
+        specifier: workspace:*
+        version: link:../lexicon
+      '@speedrunledger/web-auth':
+        specifier: workspace:*
+        version: link:../web-auth
+      '@speedrunledger/web-ui':
+        specifier: workspace:*
+        version: link:../web-ui
+      express:
+        specifier: 5.3.0
+        version: 5.3.0
+      kysely:
+        specifier: 0.29.6
+        version: 0.29.6
+      react:
+        specifier: 19.3.1
+        version: 19.3.1
+      react-dom:
+        specifier: 19.3.1
+        version: 19.3.1(react@19.3.1)
+    devDependencies:
+      '@speedrunledger/appview':
+        specifier: workspace:*
+        version: link:../appview
+      '@speedrunledger/community-service':
+        specifier: workspace:*
+        version: link:../community-service
+      '@speedrunledger/indexer':
+        specifier: workspace:*
+        version: link:../indexer
+      '@speedrunledger/runner-web':
+        specifier: workspace:*
+        version: link:../runner-web
+      '@speedrunledger/testkit':
+        specifier: workspace:*
+        version: link:../testkit
+      '@types/express':
+        specifier: 5.0.6
+        version: 5.0.6
+      '@types/react':
+        specifier: ^19.3.0
+        version: 19.3.0
+      '@types/react-dom':
+        specifier: ^19.3.0
+        version: 19.3.0(@types/react@19.3.0)
+      '@vitejs/plugin-react':
+        specifier: 6.1.2
+        version: 6.1.2(vite@8.3.4(@types/node@22.20.5)(esbuild@0.28.2)(tsx@4.23.15))
+      pino:
+        specifier: 10.4.0
+        version: 10.4.0
+      playwright-core:
+        specifier: ^1.64.1
+        version: 1.64.1
+      vite:
+        specifier: 8.3.4
+        version: 8.3.4(@types/node@22.20.5)(esbuild@0.28.2)(tsx@4.23.15)
+
   packages/runner-web:
     dependencies:
       '@atproto/lex':
@@ -125,6 +223,9 @@ importers:
       '@speedrunledger/web-auth':
         specifier: workspace:*
         version: link:../web-auth
+      '@speedrunledger/web-ui':
+        specifier: workspace:*
+        version: link:../web-ui
       express:
         specifier: 5.3.0
         version: 5.3.0
@@ -184,6 +285,9 @@ importers:
       '@types/pg':
         specifier: ^8.23.1
         version: 8.23.1
+      playwright-core:
+        specifier: ^1.64.1
+        version: 1.64.1
 
   packages/web-auth:
     dependencies:
@@ -209,6 +313,18 @@ importers:
       '@types/express':
         specifier: 5.0.6
         version: 5.0.6
+      vite:
+        specifier: 8.3.4
+        version: 8.3.4(@types/node@22.20.5)(esbuild@0.28.2)(tsx@4.23.15)
+
+  packages/web-ui:
+    devDependencies:
+      '@types/react':
+        specifier: ^19.3.0
+        version: 19.3.0
+      react:
+        specifier: 19.3.1
+        version: 19.3.1
 
 packages:
 

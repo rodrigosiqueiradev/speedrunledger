@@ -4,6 +4,7 @@ import pg from 'pg'
 import * as init from './migrations/001-init.js'
 import * as boards from './migrations/002-boards.js'
 import * as oauth from './migrations/003-oauth.js'
+import * as communitySessions from './migrations/004-community-sessions.js'
 import type { DatabaseSchema } from './schema.js'
 
 export * from './schema.js'
@@ -25,6 +26,7 @@ const migrations: Record<string, Migration> = {
   '001-init': init,
   '002-boards': boards,
   '003-oauth': oauth,
+  '004-community-sessions': communitySessions,
 }
 
 class StaticMigrationProvider implements MigrationProvider {

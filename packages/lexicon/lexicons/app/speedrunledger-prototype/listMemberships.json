@@ -1,0 +1,30 @@
+{
+  "lexicon": 1,
+  "id": "app.speedrunledger-prototype.listMemberships",
+  "defs": {
+    "main": {
+      "type": "query",
+      "description": "Communities that list an account as a moderator, active or waiting for the account to accept.",
+      "parameters": {
+        "type": "params",
+        "required": ["actor"],
+        "properties": {
+          "actor": { "type": "string", "format": "at-identifier" }
+        }
+      },
+      "output": {
+        "encoding": "application/json",
+        "schema": {
+          "type": "object",
+          "required": ["memberships"],
+          "properties": {
+            "memberships": {
+              "type": "array",
+              "items": { "type": "ref", "ref": "app.speedrunledger-prototype.defs#membershipView" }
+            }
+          }
+        }
+      }
+    }
+  }
+}

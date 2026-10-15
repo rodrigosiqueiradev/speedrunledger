@@ -16,6 +16,7 @@
     "@speedrunledger/db": "workspace:*",
     "@speedrunledger/lexicon": "workspace:*",
     "@speedrunledger/web-auth": "workspace:*",
+    "@speedrunledger/web-ui": "workspace:*",
     "express": "5.3.0",
     "kysely": "0.29.6",
     "react": "19.3.1",

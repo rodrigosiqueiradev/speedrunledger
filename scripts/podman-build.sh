@@ -27,12 +27,12 @@ build() {
 service() { build "$1" . infra/service.Containerfile --build-arg "PACKAGE=$1"; }
 
 targets=("$@")
-if [[ ${#targets[@]} -eq 0 ]]; then targets=(plc pds indexer appview runner-web); fi
+if [[ ${#targets[@]} -eq 0 ]]; then targets=(plc pds indexer appview community-service runner-web moderator-web); fi
 for t in "${targets[@]}"; do
   case "$t" in
     plc) build plc infra/plc ;;
     pds) build pds infra/pds ;;
-    indexer | appview | runner-web) service "$t" ;;
+    indexer | appview | community-service | runner-web | moderator-web) service "$t" ;;
     *) echo "unknown image: $t" >&2; exit 1 ;;
   esac
 done

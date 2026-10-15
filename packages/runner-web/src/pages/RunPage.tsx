@@ -3,19 +3,7 @@ import type { RunView } from '@speedrunledger/lexicon'
 import { ApiError, api } from '../api.js'
 import type { Me } from '../main.js'
 import { boardHref, editHref, Link, navigate } from '../router.js'
-import { formatMs } from '../time.js'
-
-const statusText: Record<string, string> = {
-  pending: 'Waiting for review',
-  verified: 'Verified',
-  rejected: 'Rejected',
-  changesRequested: 'Changes requested',
-  invalid: 'Not accepted by the category',
-}
-
-export function StatusBadge({ status }: { status: string }) {
-  return <span className={`status ${status}`}>{statusText[status] ?? status}</span>
-}
+import { formatMs, StatusBadge } from '@speedrunledger/web-ui'
 
 export function RunPage({ uri, me }: { uri: string; me: Me | null | undefined }) {
   const [run, setRun] = useState<RunView>()

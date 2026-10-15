@@ -15,9 +15,12 @@ document. It is being built in the doc's order; see [Status](#status).
 | `packages/lexicon` | The 14 `app.speedrunledger-prototype.*` record lexicons (`lexicons/`) and TypeScript schemas generated from them with `@atproto/lex` (`pnpm --filter @speedrunledger/lexicon codegen`). |
 | `packages/db` | Postgres schema and migrations (Kysely). |
 | `packages/indexer` | Follows the repo event stream, validates records, and writes them to Postgres; backfills whole repos on first start; keeps leaderboards up to date. |
-| `packages/appview` | Read-only XRPC queries over the index: `listCommunities`, `getCommunity`, `getLeaderboard`, `getRun`, `getRunner`. |
-| `packages/web-auth` | atproto OAuth sign-in for the web apps (Express router, sessions stored in Postgres). |
+| `packages/appview` | Read-only XRPC queries over the index: `listCommunities`, `getCommunity`, `getLeaderboard`, `getRun`, `getRunner`, `listReviewQueue`, `listMemberships`. |
+| `packages/community-service` | The only service holding community accounts' sessions. Writes verdicts into a community's repo for moderators who prove their DID with a service-auth JWT and pass the checks in the index. |
+| `packages/web-auth` | Server code shared by the web apps: atproto OAuth sign-in (sessions stored in Postgres), the AppView proxy and client serving. |
+| `packages/web-ui` | Browser code shared by the web apps: router, time formatting, API helpers, styles. |
 | `packages/runner-web` | The Runner app: browse boards, sign in, submit, edit and delete runs in your own repo. React + Vite with a small Express backend. |
+| `packages/moderator-web` | The Moderator app: your communities, the review queue, and verdicts (verify, retime, request changes, reject). |
 | `packages/testkit` | Helpers for integration tests against the local stack: accounts, records, a hand-built Super Mario 64 community. |
 | `infra/` | Podman images for the local PDS and PLC directory, and `dev.yaml` for `podman kube play`. |
 | `scripts/` | `podman-build.sh`, `dev-up.sh`, `dev-down.sh`. |
@@ -34,17 +37,22 @@ pnpm infra:up      # builds images if needed, then starts the pods
 pnpm infra:down    # stop; `scripts/dev-down.sh --volumes` also deletes data
 ```
 
-`infra:up` runs `podman kube play infra/dev.yaml`, which starts three pods on
+`infra:up` runs `podman kube play infra/dev.yaml`, which starts four pods on
 the host network:
 
 - `ledger-pds`: a PDS on `localhost:2583` that accepts `.test` handles, and a
   PLC directory on `localhost:2582`, so DIDs and migrations work offline.
 - `ledger-data`: Postgres on `localhost:5433`, and the indexer.
-- `ledger-web`: the AppView on `localhost:2584` and the Runner app on
-  `http://127.0.0.1:2585`.
+- `ledger-web`: the AppView on `localhost:2584`, the Runner app on
+  `http://127.0.0.1:2585` and the Moderator app on `http://127.0.0.1:2587`.
+- `ledger-community`: the community service on `localhost:2586`, alone in its
+  pod because it holds the community accounts' sessions.
 
-Open the Runner app at `127.0.0.1`, not `localhost`: in development it signs
-in as an OAuth loopback client, which atproto only allows on the loopback IP.
+Images are built the first time; after changing code, `scripts/dev-up.sh
+--build` rebuilds our services' images.
+
+Open the apps at `127.0.0.1`, not `localhost`: in development they sign in as
+OAuth loopback clients, which atproto only allows on the loopback IP.
 Create an account to sign in with on the local PDS:
 
 ```sh
@@ -115,6 +123,37 @@ pnpm --filter @speedrunledger/runner-web dev   # http://127.0.0.1:2585, with Vit
 | `COOKIE_SECRET` | Runner app | At least 32 characters; signs the session cookie (required). |
 | `PDS_URL`, `PLC_URL` | Runner app | Development: resolve handles through this PDS and allow plain-http OAuth. `DEV_MODE=false` turns this off. |
 
+The Moderator app (`pnpm --filter @speedrunledger/moderator-web dev`) takes
+the same variables with `MODERATOR_PORT` (2587) and `MODERATOR_PUBLIC_URL`,
+plus `COMMUNITY_SERVICE_URL` (default `http://localhost:2586`) and
+`COMMUNITY_SERVICE_DID` (default `did:web:localhost%3A2586`).
+
+## The community service
+
+`pnpm --filter @speedrunledger/community-service dev` runs it outside a container.
+
+| Variable | Meaning |
+| --- | --- |
+| `DATABASE_URL` | The indexer's Postgres (required); it reads memberships, bans and runs from the index, and keeps encrypted community credentials in `community_credential`. |
+| `COMMUNITY_SECRET_KEY` | 32 bytes of hex that encrypt those credentials (required). |
+| `COMMUNITY_ADMIN_TOKEN` | Bearer token for the admin endpoints (required). |
+| `COMMUNITY_SERVICE_PORT` | Port, default 2586. |
+| `COMMUNITY_SERVICE_DID` | The audience moderators' tokens must name; default `did:web:localhost%3A<port>`. |
+| `PLC_URL` | Where moderators' DIDs are resolved to check their tokens' signatures. |
+
+Moderators call `app.speedrunledger-prototype.moderation.createVerdict` with a
+service-auth JWT that their own PDS signs (`com.atproto.server.getServiceAuth`,
+audience the service's DID, `lxm` the method). The Moderator app asks for that
+token with the OAuth scope `rpc:app.speedrunledger-prototype.moderation.createVerdict?aud=*`.
+The service then checks in the index that the caller is an active moderator of
+the run's community, is not banned there, and did not run in the run, and that
+the run is unchanged since it was opened.
+
+Admin endpoints (`Authorization: Bearer $COMMUNITY_ADMIN_TOKEN`):
+`POST /admin/communities` with `{identifier, password, pdsUrl}` stores a
+community account's credentials after logging in with them;
+`GET /admin/communities` lists the communities the service can write for.
+
 ## Status
 
 1. **Lexicons and indexer: done.** All 14 record types; the indexer stores
@@ -123,8 +162,10 @@ pnpm --filter @speedrunledger/runner-web dev   # http://127.0.0.1:2585, with Vit
 2. **Runner app and boards: done.** OAuth sign-in, run submission, edits and
    deletes in the runner's repo, leaderboards computed from verdicts, and the
    AppView queries. A browser test takes a run from sign-in to a ranked entry.
-3. Moderator app: review (next).
-4. Moderator app: community management, plus the admin CLI.
+3. **Moderator app, review: done.** The review queue, and verdicts written by
+   the community service into the community's repo. A browser test takes a
+   run from submission through review to a ranked entry.
+4. Moderator app: community management, plus the admin CLI (next).
 
 ## License
 

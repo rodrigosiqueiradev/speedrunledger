@@ -24,6 +24,16 @@
     "kysely": "0.29.6"
   },
   "devDependencies": {
-    "@types/express": "5.0.6"
+    "@types/express": "5.0.6",
+    "vite": "8.3.4"
+  },
+  "description": "Server code shared by the web apps: atproto OAuth sign-in, the AppView proxy and client serving.",
+  "peerDependencies": {
+    "vite": "8.3.4"
+  },
+  "peerDependenciesMeta": {
+    "vite": {
+      "optional": true
+    }
   }
 }

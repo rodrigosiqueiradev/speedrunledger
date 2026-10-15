@@ -4,8 +4,8 @@ import { fileURLToPath } from 'node:url'
 import type { Client } from '@atproto/lex'
 import { createDb, type Database, migrateToLatest } from '@speedrunledger/db'
 import { ledger, type RunRecord } from '@speedrunledger/lexicon'
-import { WebAuth } from '@speedrunledger/web-auth'
-import express, { type Request, type Response } from 'express'
+import { serveClient, WebAuth, xrpcProxy } from '@speedrunledger/web-auth'
+import express, { type Response } from 'express'
 import type { RunnerWebConfig } from './config.js'
 
 const here = dirname(fileURLToPath(import.meta.url))
@@ -88,27 +88,8 @@ export class RunnerWeb {
       res.json({})
     })
 
-    // Reads go to the AppView, as Caddy does in production.
-    app.get('/xrpc/:nsid', async (req: Request, res: Response) => {
-      const target = new URL(req.originalUrl, this.config.appviewUrl)
-      const upstream = await fetch(target, { headers: { accept: 'application/json' } })
-      res.status(upstream.status).type(upstream.headers.get('content-type') ?? 'application/json')
-      res.send(Buffer.from(await upstream.arrayBuffer()))
-    })
-
-    if (this.config.viteDev) {
-      const { createServer } = await import('vite')
-      const vite = await createServer({ root, server: { middlewareMode: true }, appType: 'spa' })
-      app.use(vite.middlewares)
-    } else {
-      const client = join(root, 'dist', 'client')
-      app.use(express.static(client))
-      app.get('/{*path}', (_req, res) => res.sendFile(join(client, 'index.html')))
-    }
-
-    app.use((err: Error, _req: Request, res: Response, _next: express.NextFunction) => {
-      res.status(500).json({ error: 'InternalServerError', message: err.message })
-    })
+    app.get('/xrpc/:nsid', xrpcProxy(this.config.appviewUrl))
+    await serveClient(app, { root, viteDev: this.config.viteDev })
     return app
   }
 
