@@ -1,0 +1,42 @@
+{
+  "lexicon": 1,
+  "id": "app.speedrunledger-prototype.getCommunity",
+  "defs": {
+    "main": {
+      "type": "query",
+      "description": "A community with its games and categories.",
+      "parameters": {
+        "type": "params",
+        "required": [
+          "community"
+        ],
+        "properties": {
+          "community": {
+            "type": "string",
+            "format": "did"
+          }
+        }
+      },
+      "output": {
+        "encoding": "application/json",
+        "schema": {
+          "type": "object",
+          "required": [
+            "community"
+          ],
+          "properties": {
+            "community": {
+              "type": "ref",
+              "ref": "app.speedrunledger-prototype.defs#communityDetail"
+            }
+          }
+        }
+      },
+      "errors": [
+        {
+          "name": "NotFound"
+        }
+      ]
+    }
+  }
+}

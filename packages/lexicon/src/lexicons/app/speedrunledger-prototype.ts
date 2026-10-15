@@ -4,7 +4,13 @@
 
 export * as category from './speedrunledger-prototype/category.js'
 export * as community from './speedrunledger-prototype/community.js'
+export * as defs from './speedrunledger-prototype/defs.js'
 export * as game from './speedrunledger-prototype/game.js'
+export * as getCommunity from './speedrunledger-prototype/getCommunity.js'
+export * as getLeaderboard from './speedrunledger-prototype/getLeaderboard.js'
+export * as getRun from './speedrunledger-prototype/getRun.js'
+export * as getRunner from './speedrunledger-prototype/getRunner.js'
+export * as listCommunities from './speedrunledger-prototype/listCommunities.js'
 export * as platform from './speedrunledger-prototype/platform.js'
 export * as ruleset from './speedrunledger-prototype/ruleset.js'
 export * as run from './speedrunledger-prototype/run.js'

@@ -1,0 +1,400 @@
+{
+  "lexicon": 1,
+  "id": "app.speedrunledger-prototype.defs",
+  "description": "Views served by the SpeedrunLedger AppView.",
+  "defs": {
+    "actorView": {
+      "type": "object",
+      "required": [
+        "did"
+      ],
+      "properties": {
+        "did": {
+          "type": "string",
+          "format": "did"
+        },
+        "handle": {
+          "type": "string",
+          "format": "handle"
+        }
+      }
+    },
+    "communityView": {
+      "type": "object",
+      "required": [
+        "did",
+        "name"
+      ],
+      "properties": {
+        "did": {
+          "type": "string",
+          "format": "did"
+        },
+        "handle": {
+          "type": "string",
+          "format": "handle"
+        },
+        "name": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        }
+      }
+    },
+    "gameView": {
+      "type": "object",
+      "required": [
+        "uri",
+        "cid",
+        "title",
+        "platforms"
+      ],
+      "properties": {
+        "uri": {
+          "type": "string",
+          "format": "at-uri"
+        },
+        "cid": {
+          "type": "string",
+          "format": "cid"
+        },
+        "title": {
+          "type": "string"
+        },
+        "releaseYear": {
+          "type": "integer"
+        },
+        "platforms": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "categoryView": {
+      "type": "object",
+      "required": [
+        "uri",
+        "cid",
+        "game",
+        "name",
+        "kind",
+        "sort",
+        "primaryTiming",
+        "timingMethods",
+        "variables",
+        "requiresVideo",
+        "requiredApprovals",
+        "retired"
+      ],
+      "properties": {
+        "uri": {
+          "type": "string",
+          "format": "at-uri"
+        },
+        "cid": {
+          "type": "string",
+          "format": "cid"
+        },
+        "game": {
+          "type": "string",
+          "format": "at-uri"
+        },
+        "name": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        },
+        "kind": {
+          "type": "string"
+        },
+        "sort": {
+          "type": "string"
+        },
+        "primaryTiming": {
+          "type": "string"
+        },
+        "timingMethods": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "variables": {
+          "type": "array",
+          "items": {
+            "type": "ref",
+            "ref": "app.speedrunledger-prototype.category#variable"
+          }
+        },
+        "requiresVideo": {
+          "type": "boolean"
+        },
+        "requiredApprovals": {
+          "type": "integer"
+        },
+        "retired": {
+          "type": "boolean"
+        },
+        "ruleset": {
+          "type": "ref",
+          "ref": "#rulesetView"
+        }
+      }
+    },
+    "rulesetView": {
+      "type": "object",
+      "required": [
+        "uri",
+        "cid",
+        "text",
+        "createdAt"
+      ],
+      "properties": {
+        "uri": {
+          "type": "string",
+          "format": "at-uri"
+        },
+        "cid": {
+          "type": "string",
+          "format": "cid"
+        },
+        "text": {
+          "type": "string"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "datetime"
+        }
+      }
+    },
+    "gameDetail": {
+      "type": "object",
+      "required": [
+        "game",
+        "categories"
+      ],
+      "properties": {
+        "game": {
+          "type": "ref",
+          "ref": "#gameView"
+        },
+        "categories": {
+          "type": "array",
+          "items": {
+            "type": "ref",
+            "ref": "#categoryView"
+          }
+        }
+      }
+    },
+    "communityDetail": {
+      "type": "object",
+      "required": [
+        "community",
+        "games"
+      ],
+      "properties": {
+        "community": {
+          "type": "ref",
+          "ref": "#communityView"
+        },
+        "games": {
+          "type": "array",
+          "items": {
+            "type": "ref",
+            "ref": "#gameDetail"
+          }
+        }
+      }
+    },
+    "verdictView": {
+      "type": "object",
+      "required": [
+        "uri",
+        "status",
+        "reviewer",
+        "subjectCid",
+        "current",
+        "indexedAt"
+      ],
+      "properties": {
+        "uri": {
+          "type": "string",
+          "format": "at-uri"
+        },
+        "status": {
+          "type": "string",
+          "knownValues": [
+            "verified",
+            "rejected",
+            "changesRequested"
+          ]
+        },
+        "reviewer": {
+          "type": "ref",
+          "ref": "#actorView"
+        },
+        "reason": {
+          "type": "string"
+        },
+        "verifiedTimes": {
+          "type": "ref",
+          "ref": "app.speedrunledger-prototype.run#times"
+        },
+        "subjectCid": {
+          "type": "string",
+          "format": "cid"
+        },
+        "current": {
+          "type": "boolean",
+          "description": "Whether the verdict is for the run's current version."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "datetime"
+        },
+        "indexedAt": {
+          "type": "string",
+          "format": "datetime"
+        }
+      }
+    },
+    "runView": {
+      "type": "object",
+      "required": [
+        "uri",
+        "cid",
+        "runner",
+        "category",
+        "community",
+        "status",
+        "times",
+        "videos",
+        "variables",
+        "problems",
+        "performedAt",
+        "createdAt",
+        "indexedAt"
+      ],
+      "properties": {
+        "uri": {
+          "type": "string",
+          "format": "at-uri"
+        },
+        "cid": {
+          "type": "string",
+          "format": "cid"
+        },
+        "runner": {
+          "type": "ref",
+          "ref": "#actorView"
+        },
+        "category": {
+          "type": "string",
+          "format": "at-uri"
+        },
+        "community": {
+          "type": "string",
+          "format": "did"
+        },
+        "status": {
+          "type": "string",
+          "knownValues": [
+            "pending",
+            "verified",
+            "rejected",
+            "changesRequested",
+            "invalid"
+          ],
+          "description": "From the latest verdict by an active moderator; pending when no verdict covers the current version."
+        },
+        "times": {
+          "type": "ref",
+          "ref": "app.speedrunledger-prototype.run#times"
+        },
+        "verifiedTimes": {
+          "type": "ref",
+          "ref": "app.speedrunledger-prototype.run#times"
+        },
+        "videos": {
+          "type": "array",
+          "items": {
+            "type": "ref",
+            "ref": "app.speedrunledger-prototype.run#video"
+          }
+        },
+        "variables": {
+          "type": "array",
+          "items": {
+            "type": "ref",
+            "ref": "app.speedrunledger-prototype.run#variableValue"
+          }
+        },
+        "platform": {
+          "type": "string"
+        },
+        "emulated": {
+          "type": "boolean"
+        },
+        "comment": {
+          "type": "string"
+        },
+        "problems": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Reference checks the run fails, such as an unknown category."
+        },
+        "rank": {
+          "type": "integer",
+          "description": "Current rank, when the run is on its board."
+        },
+        "verdicts": {
+          "type": "array",
+          "items": {
+            "type": "ref",
+            "ref": "#verdictView"
+          },
+          "description": "Newest first. Only in getRun."
+        },
+        "performedAt": {
+          "type": "string",
+          "format": "datetime"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "datetime"
+        },
+        "indexedAt": {
+          "type": "string",
+          "format": "datetime"
+        }
+      }
+    },
+    "boardEntry": {
+      "type": "object",
+      "required": [
+        "rank",
+        "rankedMs",
+        "run"
+      ],
+      "properties": {
+        "rank": {
+          "type": "integer"
+        },
+        "rankedMs": {
+          "type": "integer"
+        },
+        "run": {
+          "type": "ref",
+          "ref": "#runView"
+        }
+      }
+    }
+  }
+}

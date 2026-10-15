@@ -47,7 +47,7 @@ YAML
 podman secret rm ledger-dev >/dev/null 2>&1 || true
 printf '%s\n' "$secret_yaml" | podman kube play - >/dev/null
 
-for image in plc pds indexer; do
+for image in plc pds indexer appview; do
   if ! podman image exists "localhost/speedrunledger/$image:dev"; then
     scripts/podman-build.sh "$image"
   fi
@@ -66,4 +66,5 @@ wait_for() {
 }
 wait_for plc http://localhost:2582/_health
 wait_for pds http://localhost:2583/xrpc/_health
+wait_for appview "http://localhost:2584/xrpc/app.speedrunledger-prototype.listCommunities"
 echo "env for tools and tests: source $env_file"

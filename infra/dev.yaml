@@ -2,7 +2,7 @@
 #
 # Pods share the host network so every service, the tests and the browser
 # see the same URLs (localhost:2582 PLC, localhost:2583 PDS,
-# localhost:5433 Postgres). The indexer follows the PDS's own event stream,
+# localhost:5433 Postgres, localhost:2584 AppView). The indexer follows the PDS's own event stream,
 # since there is no relay locally. Secrets come from the `ledger-dev` podman secret
 # that dev-up.sh generates on first run.
 apiVersion: v1
@@ -119,3 +119,24 @@ spec:
     - name: pds-data
       persistentVolumeClaim:
         claimName: ledger-pds-data
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: ledger-web
+  labels:
+    app: speedrunledger
+spec:
+  hostNetwork: true
+  restartPolicy: Always
+  containers:
+    - name: appview
+      image: localhost/speedrunledger/appview:dev
+      env:
+        - name: APPVIEW_PORT
+          value: "2584"
+        - name: DATABASE_URL
+          valueFrom:
+            secretKeyRef:
+              name: ledger-dev
+              key: databaseUrl

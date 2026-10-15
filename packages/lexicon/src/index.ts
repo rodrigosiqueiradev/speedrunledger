@@ -1,5 +1,6 @@
 import * as ledgerLexicons from './lexicons/app/speedrunledger-prototype.js'
 import { com } from './lexicons/index.js'
+import type * as LexDefs from './lexicons/app/speedrunledger-prototype/defs.js'
 import type * as LexRun from './lexicons/app/speedrunledger-prototype/run.js'
 import type * as LexRunParticipant from './lexicons/app/speedrunledger-prototype/runParticipant.js'
 import type * as LexGame from './lexicons/app/speedrunledger-prototype/game.js'
@@ -137,3 +138,14 @@ export type RecordFor<C extends Collection> = C extends typeof ids.run
                           : C extends typeof ids.platformSysadmin
                             ? PlatformSysadminRecord
                             : never
+
+/** AppView view types (app.speedrunledger-prototype.defs). */
+export type ActorView = LexDefs.ActorView
+export type CommunityView = LexDefs.CommunityView
+export type GameView = LexDefs.GameView
+export type CategoryView = LexDefs.CategoryView
+export type RulesetView = LexDefs.RulesetView
+export type CommunityDetail = LexDefs.CommunityDetail
+export type VerdictView = LexDefs.VerdictView
+export type RunView = LexDefs.RunView
+export type BoardEntry = LexDefs.BoardEntry
