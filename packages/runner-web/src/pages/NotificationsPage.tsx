@@ -39,6 +39,8 @@ function describe(n: NotificationView): string {
       return `${who(n)} beat your world record`
     case 'flagged':
       return `${who(n)} flagged your run as suspected cheating`
+    case 'deadVideo':
+      return 'A video link on your run no longer works'
     case 'invited':
       return 'You were invited to moderate'
     case 'vote':

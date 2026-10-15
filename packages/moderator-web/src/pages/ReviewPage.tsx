@@ -31,6 +31,10 @@ export function ReviewPage({ uri, me }: { uri: string; me: Me }) {
   if (!run || !category) return error ? <p className="error">{error}</p> : <p className="muted">Loading run…</p>
   const methods = category.timingMethods as Method[]
   const ownRun = run.runner.did === me.did
+  // Approvals of this version so far, while no later verdict overturned them.
+  const current = (run.verdicts ?? []).filter((v) => v.current)
+  const approvers = current[0]?.status === 'verified' ? [...new Set(current.filter((v) => v.status === 'verified').map((v) => v.reviewer.did))] : []
+  const approvedByMe = approvers.some((d) => d === me.did)
 
   async function submit(e: FormEvent) {
     e.preventDefault()
@@ -89,9 +93,12 @@ export function ReviewPage({ uri, me }: { uri: string; me: Me }) {
           {run.videos.length === 0
             ? 'none'
             : run.videos.map((v) => (
-                <a key={v.url} href={v.url} target="_blank" rel="noreferrer noopener">
-                  {v.label ?? v.url}
-                </a>
+                <span key={v.url} className="video">
+                  <a href={v.url} target="_blank" rel="noreferrer noopener">
+                    {v.label ?? v.url}
+                  </a>
+                  {run.deadVideos?.some((u) => u === v.url) && <span className="error small"> (dead link)</span>}{' '}
+                </span>
               ))}
         </dd>
         {run.variables.length > 0 && (
@@ -167,10 +174,14 @@ export function ReviewPage({ uri, me }: { uri: string; me: Me }) {
             <textarea name="reason" rows={3} maxLength={1000} value={reason} onChange={(e) => setReason(e.target.value)} />
           </label>
           {category.requiredApprovals > 1 && status === 'verified' && (
-            <p className="muted small">This category needs {category.requiredApprovals} moderators to verify a run.</p>
+            <p className="muted small">
+              This category needs {category.requiredApprovals} moderators to verify a run; {approvers.length} approved this version so far.
+              {approvedByMe && ' You already approved it, so it is waiting for another moderator.'}
+              {!approvedByMe && approvers.length > 0 && ' Leave the retime empty to keep the earlier approver’s.'}
+            </p>
           )}
           {error && <p className="error">{error}</p>}
-          <button type="submit" disabled={busy}>
+          <button type="submit" disabled={busy || (status === 'verified' && approvedByMe)}>
             {busy ? 'Saving…' : 'Record verdict'}
           </button>
         </form>

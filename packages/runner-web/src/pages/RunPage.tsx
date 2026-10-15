@@ -91,9 +91,12 @@ export function RunPage({ uri, me, share }: { uri: string; me: Me | null | undef
         <dt>Video</dt>
         <dd>
           {run.videos.map((v) => (
-            <a key={v.url} href={v.url} target="_blank" rel="noreferrer noopener">
-              {v.label ?? v.url}
-            </a>
+            <span key={v.url} className="video">
+              <a href={v.url} target="_blank" rel="noreferrer noopener">
+                {v.label ?? v.url}
+              </a>
+              {run.deadVideos?.some((u) => u === v.url) && <span className="error small"> (this link no longer works; edit the run to replace it)</span>}{' '}
+            </span>
           ))}
         </dd>
         {run.variables.length > 0 && (

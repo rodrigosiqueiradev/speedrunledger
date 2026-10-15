@@ -22,6 +22,8 @@ export interface CommunityServiceConfig {
   feedServiceDid?: string
   /** secp256k1 private key, hex: signs suspected-cheating labels. Without it, flagging is off. */
   labelerSigningKey?: string
+  /** How often each ranked run's video links are rechecked; 0 turns checks off. */
+  videoCheckIntervalMs: number
 }
 
 export function readConfig(env: NodeJS.ProcessEnv = process.env): CommunityServiceConfig {
@@ -48,5 +50,6 @@ export function readConfig(env: NodeJS.ProcessEnv = process.env): CommunityServi
     runnerAppUrl: env.RUNNER_PUBLIC_URL,
     feedServiceDid: env.FEED_SERVICE_DID,
     labelerSigningKey: env.LABELER_SIGNING_KEY,
+    videoCheckIntervalMs: Number(env.VIDEO_CHECK_INTERVAL_MS ?? 7 * 24 * 60 * 60 * 1000),
   }
 }

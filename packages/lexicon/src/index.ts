@@ -158,3 +158,4 @@ export type RequestView = LexDefs.RequestView
 export type LabelView = LexDefs.LabelView
 export type WorldRecordView = LexDefs.WorldRecordView
 export type NotificationView = LexDefs.NotificationView
+export type VideoProblemView = LexDefs.VideoProblemView

@@ -298,6 +298,11 @@ type RunView = {
    * Current labels on the run from moderators of its community, such as suspected-cheating.
    */
   labels?: LabelView[]
+
+  /**
+   * Video links the community service's last check found gone.
+   */
+  deadVideos?: l.UriString[]
 }
 
 export type { RunView }
@@ -355,6 +360,9 @@ const runView = /*#__PURE__*/ l.typedObject<RunView>(
       /*#__PURE__*/ l.array(
         /*#__PURE__*/ l.ref<LabelView>((() => labelView) as any),
       ),
+    ),
+    deadVideos: /*#__PURE__*/ l.optional(
+      /*#__PURE__*/ l.array(/*#__PURE__*/ l.string({ format: 'uri' })),
     ),
   }),
 )
@@ -746,7 +754,7 @@ type NotificationView = {
   $type?: 'app.speedrunledger-prototype.defs#notificationView'
 
   /**
-   * verified, rejected, changesRequested: a verdict on your run. worldRecord: your run took first place. worldRecordBeaten: someone took your first place. flagged: a moderator labeled your run. invited: a community invited you to moderate. vote: a proposal is waiting for your vote.
+   * verified, rejected, changesRequested: a verdict on your run. worldRecord: your run took first place. worldRecordBeaten: someone took your first place. flagged: a moderator labeled your run. invited: a community invited you to moderate. vote: a proposal is waiting for your vote. deadVideo: a video link on your ranked run looks gone; add a mirror.
    */
   reason:
     | 'verified'
@@ -757,6 +765,7 @@ type NotificationView = {
     | 'flagged'
     | 'invited'
     | 'vote'
+    | 'deadVideo'
     | l.UnknownString
 
   /**
@@ -793,6 +802,7 @@ const notificationView = /*#__PURE__*/ l.typedObject<NotificationView>(
         'flagged',
         'invited',
         'vote',
+        'deadVideo',
       ]
     }>(),
     subject: /*#__PURE__*/ l.string({ format: 'at-uri' }),
@@ -808,3 +818,28 @@ const notificationView = /*#__PURE__*/ l.typedObject<NotificationView>(
 )
 
 export { notificationView }
+
+type VideoProblemView = {
+  $type?: 'app.speedrunledger-prototype.defs#videoProblemView'
+  run: RunView
+  url: l.UriString
+  httpStatus?: number
+  detail?: string
+  checkedAt: l.DatetimeString
+}
+
+export type { VideoProblemView }
+
+const videoProblemView = /*#__PURE__*/ l.typedObject<VideoProblemView>(
+  $nsid,
+  'videoProblemView',
+  /*#__PURE__*/ l.object({
+    run: /*#__PURE__*/ l.ref<RunView>((() => runView) as any),
+    url: /*#__PURE__*/ l.string({ format: 'uri' }),
+    httpStatus: /*#__PURE__*/ l.optional(/*#__PURE__*/ l.integer()),
+    detail: /*#__PURE__*/ l.optional(/*#__PURE__*/ l.string()),
+    checkedAt: /*#__PURE__*/ l.string({ format: 'datetime' }),
+  }),
+)
+
+export { videoProblemView }

@@ -36,6 +36,7 @@ export async function startHarness(): Promise<Harness> {
       plcUrl: env.plcUrl,
       pdsUrl: env.pdsUrl,
       executorIntervalMs: 0,
+      videoCheckIntervalMs: 0,
       devMode: true,
       runnerAppUrl: 'http://127.0.0.1:2585',
       feedServiceDid: 'did:web:localhost%3A2584',

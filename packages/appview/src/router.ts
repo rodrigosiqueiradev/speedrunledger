@@ -349,10 +349,14 @@ export function createRouter(db: Database): LexRouter {
       if (params.community) query = query.where('community_did', '=', params.community)
       return { body: { records: await views.worldRecords(await query.execute()) } }
     })
+    .add(ledger.listVideoProblems, async ({ params }) => {
+      await requireCommunity(params.community)
+      return { body: { problems: await views.videoProblems(params.community) } }
+    })
     .add(ledger.listNotifications, async ({ params }) => {
       const actor = params.actor
       const limit = params.limit ?? 50
-      const [verdicts, records, beaten, flags, invites, ballots] = await Promise.all([
+      const [verdicts, records, beaten, flags, invites, ballots, deadLinks] = await Promise.all([
         db
           .selectFrom('verification as v')
           .innerJoin('run as r', (j) => j.onRef('r.uri', '=', 'v.subject_uri').onRef('r.community_did', '=', 'v.community_did'))
@@ -402,6 +406,15 @@ export function createRouter(db: Database): LexRouter {
           .orderBy('p.first_indexed_at', 'desc')
           .limit(limit)
           .execute(),
+        db
+          .selectFrom('video_check as vc')
+          .innerJoin('run as r', 'r.uri', 'vc.run_uri')
+          .select(['vc.run_uri', 'vc.url', 'vc.community_did', 'vc.checked_at', 'r.videos'])
+          .where('r.runner_did', '=', actor)
+          .where('vc.status', '=', 'dead')
+          .orderBy('vc.checked_at', 'desc')
+          .limit(limit)
+          .execute(),
       ])
       const tallies = await tallyProposals(db, ballots)
       const open = ballots.filter((p) => tallies.get(p.uri)?.status === 'open')
@@ -439,6 +452,16 @@ export function createRouter(db: Database): LexRouter {
           text: l.reason ?? undefined,
           indexedAt: l.cts,
         })),
+        // Only links still on the run; a replaced link is fixed.
+        ...deadLinks
+          .filter((d) => (d.videos as { url: string }[]).some((v) => v.url === d.url))
+          .map((d) => ({
+            reason: 'deadVideo',
+            subject: d.run_uri,
+            communityDid: d.community_did,
+            text: d.url,
+            indexedAt: d.checked_at.toISOString(),
+          })),
         ...invites.map((m) => ({
           reason: 'invited',
           subject: m.uri,

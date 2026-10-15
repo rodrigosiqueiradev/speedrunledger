@@ -11,6 +11,7 @@ import type {
   GameView,
   LabelView,
   RunView,
+  VideoProblemView,
   WorldRecordView,
 } from '@speedrunledger/lexicon'
 import type { Selectable } from 'kysely'
@@ -236,7 +237,7 @@ export class Views {
   async runs(rows: Row<'run'>[], opts: { verdicts?: boolean } = {}): Promise<RunView[]> {
     if (rows.length === 0) return []
     const uris = rows.map((r) => r.uri)
-    const [verdicts, ranks, labels] = await Promise.all([
+    const [verdicts, ranks, labels, dead] = await Promise.all([
       this.db
         .selectFrom('verification')
         .selectAll()
@@ -247,6 +248,7 @@ export class Views {
         .execute(),
       this.db.selectFrom('board_entry').select(['run_uri', 'rank']).where('run_uri', 'in', uris).execute(),
       this.labels(uris),
+      this.db.selectFrom('video_check').select(['run_uri', 'url']).where('run_uri', 'in', uris).where('status', '=', 'dead').execute(),
     ])
     const actors = await this.actors([...rows.map((r) => r.runner_did), ...verdicts.map((v) => v.reviewer_did)])
     const rankByRun = new Map(ranks.map((r) => [r.run_uri, r.rank]))
@@ -277,6 +279,7 @@ export class Views {
         problems: run.problems,
         rank: rankByRun.get(run.uri),
         labels: labels.get(run.uri)?.length ? labels.get(run.uri) : undefined,
+        deadVideos: deadVideos(run, dead),
         verdicts: opts.verdicts
           ? own.map((v) =>
               compact({
@@ -298,6 +301,24 @@ export class Views {
         createdAt: run.created_at,
         indexedAt: iso(run.indexed_at),
       }) as RunView
+    })
+  }
+
+  /** Video problems: dead links on runs that still carry them, newest check first. */
+  async videoProblems(communityDid: string): Promise<VideoProblemView[]> {
+    const checks = await this.db
+      .selectFrom('video_check')
+      .selectAll()
+      .where('community_did', '=', communityDid)
+      .where('status', '=', 'dead')
+      .orderBy('checked_at', 'desc')
+      .execute()
+    if (checks.length === 0) return []
+    const runs = await this.runs(await this.db.selectFrom('run').selectAll().where('uri', 'in', checks.map((c) => c.run_uri)).execute())
+    return checks.flatMap((c) => {
+      const run = runs.find((r) => r.uri === c.run_uri)
+      if (!run?.deadVideos?.some((u) => u === c.url)) return []
+      return [compact({ run, url: c.url, httpStatus: c.http_status ?? undefined, detail: c.detail ?? undefined, checkedAt: iso(c.checked_at) }) as VideoProblemView]
     })
   }
 
@@ -370,4 +391,11 @@ export class Views {
     }
     return out
   }
+}
+
+/** The run's links a check found dead, if they are still on the run. */
+function deadVideos(run: Row<'run'>, dead: { run_uri: string; url: string }[]): string[] | undefined {
+  const urls = (run.videos as { url: string }[]).map((v) => v.url)
+  const found = dead.filter((d) => d.run_uri === run.uri && urls.includes(d.url)).map((d) => d.url)
+  return found.length ? found : undefined
 }

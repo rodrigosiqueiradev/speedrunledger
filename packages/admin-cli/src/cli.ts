@@ -52,6 +52,8 @@ export const USAGE = `ledger-admin: run SpeedrunLedger as a sysadmin.
   community export <community> [--out <file.car>]     the community's whole repo as a signed CAR file
 
   proposals execute                                   carry out passed proposals now
+  announcements run                                   post new world records to Bluesky now
+  videos check                                        check every ranked run's video links now
 
 Options: --as <did|handle> (acting sysadmin; or LEDGER_SYSADMIN), --json.
 Environment: COMMUNITY_ADMIN_TOKEN (required), COMMUNITY_SERVICE_URL, APPVIEW_URL, PDS_URL, PLC_URL.`
@@ -258,6 +260,14 @@ export class LedgerAdmin {
       case 'proposals execute': {
         const out = await this.admin('POST', '/admin/proposals/execute', {})
         return print(`carried out ${out.executed} proposal(s)`, out)
+      }
+      case 'announcements run': {
+        const out = await this.admin('POST', '/admin/announcements/run', {})
+        return print(`posted ${out.posted} world record(s)`, out)
+      }
+      case 'videos check': {
+        const out = await this.admin('POST', '/admin/videos/check', {})
+        return print(`checked ${out.checked} link(s), ${out.dead} dead`, out)
       }
       default:
         throw new UsageError(`unknown command "${positionals.join(' ')}"\n\n${USAGE}`)

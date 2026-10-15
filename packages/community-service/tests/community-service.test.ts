@@ -158,3 +158,41 @@ describe('community service', () => {
     expect((await createVerdict(mod, { run, status: 'verified' })).body.error).toBe('Banned')
   })
 })
+
+describe('several approvals', () => {
+  it('takes each moderator once, and keeps an earlier approver’s retime', async () => {
+    const own = await setupCommunity(env, { moderators: 2 })
+    await admin(server, 'POST', '/admin/communities', { identifier: own.account.handle, password: own.account.password, pdsUrl: env.pdsUrl })
+    const [a, b] = own.moderators.map((m) => m.account)
+    await waitFor(async () => {
+      const rows = await db.selectFrom('community_member').select('active').where('community_did', '=', own.account.did).execute()
+      return rows.length === 2 && rows.every((r) => r.active) ? true : undefined
+    })
+    // A category that needs two moderators to verify.
+    const strict = await putRecord(own.account, ids.category, {
+      game: own.game,
+      name: '120 Star',
+      kind: 'time',
+      sort: 'asc',
+      primaryTiming: 'realTime',
+      requiredApprovals: 2,
+      createdAt: now(),
+    })
+    await waitFor(() => db.selectFrom('category').select('uri').where('uri', '=', strict.uri).executeTakeFirst())
+    const runner = await createAccount(env, 'ma')
+    const run = await putRecord(runner, ids.run, runRecord(strict, { times: { realTimeMs: 6_000_000 }, variables: [] }))
+    await waitFor(() => db.selectFrom('run').select('uri').where('uri', '=', run.uri).executeTakeFirst())
+
+    const first = await createVerdict(a, { run, status: 'verified', verifiedTimes: { realTimeMs: 5_999_100 } })
+    expect(first.status).toBe(200)
+    await waitFor(() => db.selectFrom('verification').select('uri').where('uri', '=', first.body.uri).executeTakeFirst())
+    expect((await createVerdict(a, { run, status: 'verified' })).body.error).toBe('AlreadyApproved')
+    // Not on the board with one approval of two.
+    expect(await db.selectFrom('board_entry').select('run_uri').where('run_uri', '=', run.uri).executeTakeFirst()).toBeUndefined()
+
+    const second = await createVerdict(b, { run, status: 'verified' })
+    expect(second.status).toBe(200)
+    const entry = await waitFor(() => db.selectFrom('board_entry').select('ranked_ms').where('run_uri', '=', run.uri).executeTakeFirst())
+    expect(entry.ranked_ms).toBe(5_999_100)
+  })
+})

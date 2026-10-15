@@ -385,6 +385,14 @@
             "ref": "#labelView"
           },
           "description": "Current labels on the run from moderators of its community, such as suspected-cheating."
+        },
+        "deadVideos": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "format": "uri"
+          },
+          "description": "Video links the community service's last check found gone."
         }
       }
     },
@@ -850,9 +858,10 @@
             "worldRecordBeaten",
             "flagged",
             "invited",
-            "vote"
+            "vote",
+            "deadVideo"
           ],
-          "description": "verified, rejected, changesRequested: a verdict on your run. worldRecord: your run took first place. worldRecordBeaten: someone took your first place. flagged: a moderator labeled your run. invited: a community invited you to moderate. vote: a proposal is waiting for your vote."
+          "description": "verified, rejected, changesRequested: a verdict on your run. worldRecord: your run took first place. worldRecordBeaten: someone took your first place. flagged: a moderator labeled your run. invited: a community invited you to moderate. vote: a proposal is waiting for your vote. deadVideo: a video link on your ranked run looks gone; add a mirror."
         },
         "subject": {
           "type": "string",
@@ -873,6 +882,34 @@
           "description": "A verdict's or proposal's reason, or what the run was."
         },
         "indexedAt": {
+          "type": "string",
+          "format": "datetime"
+        }
+      }
+    },
+    "videoProblemView": {
+      "type": "object",
+      "required": [
+        "run",
+        "url",
+        "checkedAt"
+      ],
+      "properties": {
+        "run": {
+          "type": "ref",
+          "ref": "#runView"
+        },
+        "url": {
+          "type": "string",
+          "format": "uri"
+        },
+        "httpStatus": {
+          "type": "integer"
+        },
+        "detail": {
+          "type": "string"
+        },
+        "checkedAt": {
           "type": "string",
           "format": "datetime"
         }

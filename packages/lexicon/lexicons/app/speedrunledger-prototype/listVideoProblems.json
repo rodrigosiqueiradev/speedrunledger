@@ -1,0 +1,45 @@
+{
+  "lexicon": 1,
+  "id": "app.speedrunledger-prototype.listVideoProblems",
+  "defs": {
+    "main": {
+      "type": "query",
+      "description": "Ranked runs in a community whose video links the community service's weekly check found gone, newest check first.",
+      "parameters": {
+        "type": "params",
+        "required": [
+          "community"
+        ],
+        "properties": {
+          "community": {
+            "type": "string",
+            "format": "did"
+          }
+        }
+      },
+      "output": {
+        "encoding": "application/json",
+        "schema": {
+          "type": "object",
+          "required": [
+            "problems"
+          ],
+          "properties": {
+            "problems": {
+              "type": "array",
+              "items": {
+                "type": "ref",
+                "ref": "app.speedrunledger-prototype.defs#videoProblemView"
+              }
+            }
+          }
+        }
+      },
+      "errors": [
+        {
+          "name": "NotFound"
+        }
+      ]
+    }
+  }
+}

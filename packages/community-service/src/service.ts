@@ -192,6 +192,45 @@ export class CommunityService {
     }
     const client = await this.requireClient(community)
 
+    // With several approvals needed, each moderator approves a version once,
+    // and a later approver who doesn't retime keeps an earlier approver's retime.
+    let verifiedTimes = status === 'verified' ? input.verifiedTimes : undefined
+    if (status === 'verified') {
+      const approvals = await this.db
+        .selectFrom('verification')
+        .selectAll()
+        .where('subject_uri', '=', run.uri)
+        .where('subject_cid', '=', run.cid)
+        .where('community_did', '=', community)
+        .where('status', '=', 'verified')
+        .where('reviewer_active', '=', true)
+        .orderBy('indexed_at', 'desc')
+        .execute()
+      const latest = await this.db
+        .selectFrom('verification')
+        .select(['reviewer_did', 'status', 'subject_cid'])
+        .where('subject_uri', '=', run.uri)
+        .where('community_did', '=', community)
+        .where('reviewer_active', '=', true)
+        .orderBy('indexed_at', 'desc')
+        .executeTakeFirst()
+      // Only while approvals are still standing: a later rejection or request for changes resets the round.
+      const standing = latest?.status === 'verified' && latest.subject_cid === run.cid ? approvals : []
+      if (standing.some((v) => v.reviewer_did === moderatorDid)) {
+        throw fail(409, 'AlreadyApproved', 'You already verified this version; another moderator has to approve it too')
+      }
+      const retimed = standing.find((v) => v.has_verified_times)
+      if (!verifiedTimes && retimed) {
+        verifiedTimes = Object.fromEntries(
+          Object.entries({
+            realTimeMs: retimed.verified_real_time_ms,
+            realTimeNoLoadsMs: retimed.verified_real_time_no_loads_ms,
+            gameTimeMs: retimed.verified_game_time_ms,
+          }).filter(([, v]) => v !== null),
+        ) as VerdictInput['verifiedTimes']
+      }
+    }
+
     const ruleset = run.ruleset_uri
       ? await this.db.selectFrom('ruleset').select(['uri', 'cid']).where('uri', '=', run.ruleset_uri).executeTakeFirst()
       : undefined
@@ -201,7 +240,7 @@ export class CommunityService {
       status,
       reviewer: moderatorDid,
       reason,
-      verifiedTimes: status === 'verified' ? input.verifiedTimes : undefined,
+      verifiedTimes,
       ruleset: ruleset ? { uri: ruleset.uri, cid: ruleset.cid } : undefined,
       createdAt: new Date().toISOString(),
     })
