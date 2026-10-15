@@ -1,0 +1,135 @@
+{
+  "lexicon": 1,
+  "id": "app.speedrunledger-prototype.category",
+  "defs": {
+    "main": {
+      "type": "record",
+      "key": "tid",
+      "description": "A category of a game. Lives in the community's repo and changes only by majority vote.",
+      "record": {
+        "type": "object",
+        "required": [
+          "game",
+          "name",
+          "kind",
+          "sort",
+          "primaryTiming",
+          "createdAt"
+        ],
+        "properties": {
+          "game": {
+            "type": "ref",
+            "ref": "com.atproto.repo.strongRef",
+            "description": "The game record in the same community repo."
+          },
+          "name": {
+            "type": "string",
+            "maxLength": 640,
+            "maxGraphemes": 64
+          },
+          "description": {
+            "type": "string",
+            "maxLength": 20000,
+            "maxGraphemes": 2000
+          },
+          "kind": {
+            "type": "string",
+            "knownValues": [
+              "time",
+              "score"
+            ]
+          },
+          "sort": {
+            "type": "string",
+            "knownValues": [
+              "asc",
+              "desc"
+            ]
+          },
+          "primaryTiming": {
+            "type": "string",
+            "knownValues": [
+              "realTime",
+              "realTimeNoLoads",
+              "gameTime"
+            ],
+            "description": "The ranking column."
+          },
+          "timingMethods": {
+            "type": "array",
+            "maxLength": 3,
+            "items": {
+              "type": "string",
+              "knownValues": [
+                "realTime",
+                "realTimeNoLoads",
+                "gameTime"
+              ]
+            },
+            "description": "Timing methods shown on the board; always includes primaryTiming."
+          },
+          "variables": {
+            "type": "array",
+            "maxLength": 16,
+            "items": {
+              "type": "ref",
+              "ref": "#variable"
+            }
+          },
+          "requiresVideo": {
+            "type": "boolean",
+            "default": true
+          },
+          "requiredApprovals": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 10,
+            "default": 1
+          },
+          "retired": {
+            "type": "boolean",
+            "default": false,
+            "description": "A retired category accepts no new runs; its board stays visible."
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "datetime"
+          }
+        }
+      }
+    },
+    "variable": {
+      "type": "object",
+      "required": [
+        "id",
+        "name",
+        "values"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "maxLength": 64
+        },
+        "name": {
+          "type": "string",
+          "maxLength": 640,
+          "maxGraphemes": 64
+        },
+        "values": {
+          "type": "array",
+          "minLength": 1,
+          "maxLength": 64,
+          "items": {
+            "type": "string",
+            "maxLength": 64
+          }
+        },
+        "subcategory": {
+          "type": "boolean",
+          "default": false,
+          "description": "Subcategory variables split boards; the rest are filters."
+        }
+      }
+    }
+  }
+}

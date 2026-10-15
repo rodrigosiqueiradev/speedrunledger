@@ -1,0 +1,33 @@
+{
+  "lexicon": 1,
+  "id": "app.speedrunledger-prototype.community.member",
+  "defs": {
+    "main": {
+      "type": "record",
+      "key": "tid",
+      "description": "Makes a DID a moderator of this community. Active only once the moderator writes a matching memberAccept.",
+      "record": {
+        "type": "object",
+        "required": [
+          "subject",
+          "createdAt"
+        ],
+        "properties": {
+          "subject": {
+            "type": "string",
+            "format": "did"
+          },
+          "via": {
+            "type": "ref",
+            "ref": "com.atproto.repo.strongRef",
+            "description": "The community.request or passed community.proposal that justified this membership."
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "datetime"
+          }
+        }
+      }
+    }
+  }
+}

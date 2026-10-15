@@ -1,0 +1,59 @@
+{
+  "lexicon": 1,
+  "id": "app.speedrunledger-prototype.game",
+  "defs": {
+    "main": {
+      "type": "record",
+      "key": "tid",
+      "description": "A game hosted by a community. First written by a sysadmin when the community is created.",
+      "record": {
+        "type": "object",
+        "required": [
+          "title",
+          "createdAt"
+        ],
+        "properties": {
+          "title": {
+            "type": "string",
+            "maxLength": 1280,
+            "maxGraphemes": 128
+          },
+          "releaseYear": {
+            "type": "integer",
+            "minimum": 1950,
+            "maximum": 2200
+          },
+          "platforms": {
+            "type": "array",
+            "maxLength": 32,
+            "items": {
+              "type": "string",
+              "maxLength": 64
+            }
+          },
+          "externalIds": {
+            "type": "ref",
+            "ref": "#externalIds"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "datetime"
+          }
+        }
+      }
+    },
+    "externalIds": {
+      "type": "object",
+      "properties": {
+        "igdb": {
+          "type": "string",
+          "maxLength": 64
+        },
+        "speedrunCom": {
+          "type": "string",
+          "maxLength": 64
+        }
+      }
+    }
+  }
+}

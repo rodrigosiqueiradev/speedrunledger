@@ -1,0 +1,8 @@
+{
+  "name": "speedrunledger-pds",
+  "private": true,
+  "description": "atproto PDS built from the official @atproto/pds package",
+  "dependencies": {
+    "@atproto/pds": "0.5.39"
+  }
+}

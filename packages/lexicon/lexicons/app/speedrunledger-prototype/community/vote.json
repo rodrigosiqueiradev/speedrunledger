@@ -1,0 +1,41 @@
+{
+  "lexicon": 1,
+  "id": "app.speedrunledger-prototype.community.vote",
+  "defs": {
+    "main": {
+      "type": "record",
+      "key": "tid",
+      "description": "A moderator's vote on one proposal. Lives in the voter's repo.",
+      "record": {
+        "type": "object",
+        "required": [
+          "proposal",
+          "value",
+          "createdAt"
+        ],
+        "properties": {
+          "proposal": {
+            "type": "ref",
+            "ref": "com.atproto.repo.strongRef"
+          },
+          "value": {
+            "type": "string",
+            "knownValues": [
+              "yes",
+              "no"
+            ]
+          },
+          "reason": {
+            "type": "string",
+            "maxLength": 10000,
+            "maxGraphemes": 1000
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "datetime"
+          }
+        }
+      }
+    }
+  }
+}

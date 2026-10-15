@@ -1,0 +1,146 @@
+{
+  "lexicon": 1,
+  "id": "app.speedrunledger-prototype.run",
+  "defs": {
+    "main": {
+      "type": "record",
+      "key": "tid",
+      "description": "One speedrun, written by the runner into their own repo. The category reference fixes the game and the community.",
+      "record": {
+        "type": "object",
+        "required": [
+          "category",
+          "times",
+          "videos",
+          "performedAt",
+          "createdAt"
+        ],
+        "properties": {
+          "category": {
+            "type": "ref",
+            "ref": "com.atproto.repo.strongRef",
+            "description": "The category record (in the community's repo) this run is submitted to."
+          },
+          "ruleset": {
+            "type": "ref",
+            "ref": "com.atproto.repo.strongRef",
+            "description": "The ruleset version the runner played under."
+          },
+          "variables": {
+            "type": "array",
+            "maxLength": 16,
+            "items": {
+              "type": "ref",
+              "ref": "#variableValue"
+            }
+          },
+          "platform": {
+            "type": "string",
+            "maxLength": 64
+          },
+          "emulated": {
+            "type": "boolean"
+          },
+          "times": {
+            "type": "ref",
+            "ref": "#times"
+          },
+          "score": {
+            "type": "integer",
+            "description": "Used instead of times in score categories (not in the prototype)."
+          },
+          "videos": {
+            "type": "array",
+            "minLength": 1,
+            "maxLength": 4,
+            "items": {
+              "type": "ref",
+              "ref": "#video"
+            }
+          },
+          "splits": {
+            "type": "blob",
+            "accept": [
+              "application/xml",
+              "application/json"
+            ],
+            "maxSize": 1000000
+          },
+          "coRunners": {
+            "type": "array",
+            "maxLength": 8,
+            "items": {
+              "type": "string",
+              "format": "did"
+            },
+            "description": "Co-op partners (not in the prototype)."
+          },
+          "comment": {
+            "type": "string",
+            "maxLength": 20000,
+            "maxGraphemes": 2000
+          },
+          "performedAt": {
+            "type": "string",
+            "format": "datetime"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "datetime"
+          }
+        }
+      }
+    },
+    "times": {
+      "type": "object",
+      "description": "Times in integer milliseconds.",
+      "properties": {
+        "realTimeMs": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "realTimeNoLoadsMs": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "gameTimeMs": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "video": {
+      "type": "object",
+      "required": [
+        "url"
+      ],
+      "properties": {
+        "url": {
+          "type": "string",
+          "format": "uri"
+        },
+        "label": {
+          "type": "string",
+          "maxLength": 64
+        }
+      }
+    },
+    "variableValue": {
+      "type": "object",
+      "required": [
+        "variable",
+        "value"
+      ],
+      "properties": {
+        "variable": {
+          "type": "string",
+          "maxLength": 64
+        },
+        "value": {
+          "type": "string",
+          "maxLength": 64
+        }
+      }
+    }
+  }
+}

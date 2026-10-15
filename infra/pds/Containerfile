@@ -1,0 +1,24 @@
+# The upstream ghcr.io/bluesky-social/pds image is the same package with the
+# same entry point; building it here keeps every image reproducible from npm.
+FROM docker.io/library/node:22-bookworm AS build
+WORKDIR /app
+# Only set by scripts/podman-build.sh when building behind a TLS-intercepting proxy.
+ARG NODE_EXTRA_CA_CERTS
+ARG npm_config_cafile
+COPY package.json ./
+# better-sqlite3 compiles against the bundled Node headers when no prebuilt
+# binary can be downloaded.
+ENV npm_config_nodedir=/usr/local
+RUN npm install --omit=dev --no-audit --no-fund
+
+FROM docker.io/library/node:22-bookworm-slim
+WORKDIR /app
+COPY --from=build /app/node_modules ./node_modules
+COPY package.json index.cjs ./
+# A fresh named volume copies this directory, so the PDS owns its data.
+RUN mkdir -p /pds/blocks && chown -R node:node /pds
+VOLUME /pds
+ENV NODE_ENV=production
+EXPOSE 2583
+USER node
+CMD ["node", "--enable-source-maps", "index.cjs"]

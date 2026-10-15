@@ -1,0 +1,5 @@
+export { listRepos, syncRepo } from './backfill.js'
+export { type IndexerConfig, readConfig } from './config.js'
+export { type IndexOutcome, Indexer, type RecordRef, type RecordWrite } from './indexing.js'
+export { checkRun } from './run-check.js'
+export { IndexerService } from './service.js'
