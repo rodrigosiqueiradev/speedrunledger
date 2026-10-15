@@ -1,6 +1,6 @@
 # The upstream ghcr.io/bluesky-social/pds image is the same package with the
 # same entry point; building it here keeps every image reproducible from npm.
-FROM docker.io/library/node:22-bookworm AS build
+FROM docker.io/library/node:26-bookworm AS build
 WORKDIR /app
 # Only set by scripts/podman-build.sh when building behind a TLS-intercepting proxy.
 ARG NODE_EXTRA_CA_CERTS
@@ -11,7 +11,7 @@ COPY package.json ./
 ENV npm_config_nodedir=/usr/local
 RUN npm install --omit=dev --no-audit --no-fund
 
-FROM docker.io/library/node:22-bookworm-slim
+FROM docker.io/library/node:26-bookworm-slim
 WORKDIR /app
 COPY --from=build /app/node_modules ./node_modules
 COPY package.json index.cjs ./

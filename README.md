@@ -28,21 +28,22 @@ document. It is being built in the doc's order; see [Status](#status).
 
 ## Requirements
 
-Node 22+, pnpm 10, and Podman (rootless works; no Docker).
+Node 26 (pinned in `.nvmrc`), pnpm 10, and Podman (rootless works; no Docker).
 
-The repo pins pnpm in `packageManager`; `corepack enable` gives you that
-version. The scripts behind `pnpm infra:*`, `pnpm seed` and `pnpm ledger-admin`
-are plain Node, so they run the same from bash, WSL or Windows PowerShell.
+The repo pins pnpm in `packageManager`. Node 26 no longer bundles corepack, so
+install that version with `npm install -g pnpm@10.28.0`. The scripts behind
+`pnpm infra:*`, `pnpm seed` and `pnpm ledger-admin` are plain Node, so they run the same from bash, WSL or Windows PowerShell.
 
 ### Windows
 
-From PowerShell, install Node 22 or later, pnpm and Podman, and start a Podman
+From PowerShell, install Node 26, pnpm and Podman, and start a Podman
 machine (Podman runs its containers in a small WSL VM):
 
 ```powershell
-winget install OpenJS.NodeJS.LTS
+winget uninstall OpenJS.NodeJS.LTS   # only if an older LTS Node is installed
+winget install OpenJS.NodeJS         # the Current line, Node 26
 winget install RedHat.Podman
-# open a new terminal so both are on PATH
+# open a new terminal so both are on PATH; `node -v` should print v26
 npm install -g pnpm@10.28.0
 podman machine init
 podman machine start
@@ -59,8 +60,8 @@ If you work inside WSL instead, keep the clone in the Linux filesystem
 (`~/…`) and install Node and Podman in WSL too. WSL appends the Windows `PATH`
 to yours, so a Windows pnpm can be picked up instead and fails with `current
 dir is an absolute path with drive letter`. `which -a node pnpm` must not list
-`/mnt/c/…` first; if it does, install Node in WSL (for example with nvm) and run
-`corepack enable`.
+`/mnt/c/…` first; if it does, install Node in WSL (for example `nvm install`,
+which reads `.nvmrc`) and run `npm install -g pnpm@10.28.0`.
 
 ## Local stack
 
