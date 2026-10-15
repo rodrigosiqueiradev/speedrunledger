@@ -49,7 +49,8 @@ describe('indexer', () => {
     expect(row.runner_did).toBe(runner.did)
     expect(row.community_did).toBe(community.account.did)
     expect(row.real_time_ms).toBe(902_340)
-    expect(row.variables).toEqual({ platform: 'N64' })
+    expect(row.variables).toEqual({})
+    expect(row.platform).toBe('N64')
     expect(row.problems).toEqual([])
 
     const communityRow = await db.selectFrom('community').selectAll().where('did', '=', community.account.did).executeTakeFirstOrThrow()
@@ -173,7 +174,7 @@ describe('indexer', () => {
         uri: `at://${community.account.did}/${ids.category}/${futureRkey}`,
         cid: community.categories.sixteenStar.cid,
       }
-      const run = await putRecord(runner, ids.run, runRecord(futureCategory))
+      const run = await putRecord(runner, ids.run, runRecord(futureCategory, { variables: [{ variable: 'version', value: 'JP' }] }))
       const row = await waitFor(() => findRun(run.uri), { message: 'run to be indexed' })
       expect(row.problems).toEqual(['category_not_found'])
 
@@ -183,7 +184,7 @@ describe('indexer', () => {
         { game: community.game, name: 'Any%', kind: 'time', sort: 'asc', primaryTiming: 'realTime', createdAt: now() },
         { rkey: futureRkey },
       )
-      // The new category has no "platform" variable, so the run's value is now unknown.
+      // The new category has no "version" variable, so the run's value is now unknown.
       const rechecked = await waitFor(
         async () => {
           const r = await findRun(run.uri)
@@ -191,7 +192,7 @@ describe('indexer', () => {
         },
         { message: 'run to be rechecked' },
       )
-      expect(rechecked.problems).toEqual(['unknown_variable:platform'])
+      expect(rechecked.problems).toEqual(['unknown_variable:version'])
     })
 
     it('does not store records that break their lexicon or point at the wrong repo', async () => {

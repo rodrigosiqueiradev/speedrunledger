@@ -30,7 +30,6 @@ export async function setupCommunity(env: DevEnv, opts: { moderators?: number } 
       kind: 'time',
       sort: 'asc',
       primaryTiming: 'realTime',
-      variables: [{ id: 'platform', name: 'Platform', values: ['N64', 'VC', 'EMU'], subcategory: false }],
       createdAt: now(),
     })
   const sixteenStar = await category('16 Star')
@@ -51,7 +50,8 @@ export const runRecord = (category: WrittenRecord, overrides: Record<string, unk
   category,
   times: { realTimeMs: 15 * 60_000 + 2_340 },
   videos: [{ url: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ' }],
-  variables: [{ variable: 'platform', value: 'N64' }],
+  variables: [],
+  platform: 'N64',
   performedAt: now(),
   createdAt: now(),
   ...overrides,
