@@ -18,6 +18,7 @@ const proposal = (overrides: Partial<ProposalRow> = {}): ProposalRow => ({
   first_indexed_at: t0,
   electorate: ['did:plc:alice', 'did:plc:bob', 'did:plc:carol'],
   problems: [],
+  subject_did: 'did:plc:zed',
   ...overrides,
 })
 

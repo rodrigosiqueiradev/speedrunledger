@@ -25,10 +25,11 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm typecheck
-      - name: Start the local stack (Podman)
+      # The tests start our services from source; they need only the PDS, PLC and Postgres.
+      - name: Start the PDS, PLC directory and Postgres (Podman)
         run: |
           podman --version
-          pnpm infra:up --build
+          pnpm infra:up --deps
       - name: Test
         run: pnpm -r --workspace-concurrency=1 test
       - name: Stack logs

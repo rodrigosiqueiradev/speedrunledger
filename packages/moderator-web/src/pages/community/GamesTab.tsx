@@ -65,6 +65,7 @@ function Game({ game, categories, ctx, canAct }: { game: GameView; categories: C
               <td>
                 {c.name}
                 {c.retired ? <span className="tag">retired</span> : null}
+                {c.description ? <div className="muted small category-description">{c.description}</div> : null}
               </td>
               <td>{METHODS[c.primaryTiming as Method] ?? c.primaryTiming}</td>
               <td>{c.requiredApprovals ?? 1}</td>

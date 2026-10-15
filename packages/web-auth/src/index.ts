@@ -28,7 +28,12 @@ interface CookieData {
   did?: string
 }
 
-const COOKIE_NAME = 'ledger_session'
+/**
+ * The session cookie's name, one per app: cookies ignore ports, so the Runner
+ * and Moderator apps on 127.0.0.1 in development would otherwise share one
+ * cookie, and signing in to one app would sign the other in or out.
+ */
+export const cookieName = (publicUrl: string): string => `ledger_session_${new URL(publicUrl).host.replace(/[^A-Za-z0-9]/g, '_')}`
 
 /**
  * atproto OAuth for the web apps. The Node backend holds the tokens; the
@@ -71,7 +76,7 @@ export class WebAuth {
 
   private cookie(req: Request, res: Response) {
     return getIronSession<CookieData>(req, res, {
-      cookieName: COOKIE_NAME,
+      cookieName: cookieName(this.config.publicUrl),
       password: this.config.cookieSecret,
       cookieOptions: {
         secure: new URL(this.config.publicUrl).protocol === 'https:',
