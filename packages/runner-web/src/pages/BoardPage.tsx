@@ -1,3 +1,4 @@
+import type { WorldRecordView } from '@speedrunledger/lexicon'
 import { useEffect, useState } from 'react'
 import { api } from '../api.js'
 import type { Me } from '../main.js'
@@ -12,11 +13,13 @@ const timeLabel = { realTime: 'RTA', realTimeNoLoads: 'LRT', gameTime: 'IGT' } a
 export function BoardPage({ category, variables, me }: { category: string; variables: string[]; me: Me | null | undefined }) {
   const [board, setBoard] = useState<Board>()
   const [error, setError] = useState<string>()
+  const [records, setRecords] = useState<WorldRecordView[]>()
   const key = [category, ...variables].join('|')
   useEffect(() => {
     setBoard(undefined)
     setError(undefined)
     api.getLeaderboard(category, variables).then(setBoard, (e) => setError(e.message))
+    api.listWorldRecords(category).then((r) => setRecords(r.records), () => setRecords([]))
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [key])
 
@@ -92,6 +95,7 @@ export function BoardPage({ category, variables, me }: { category: string; varia
           </tbody>
         </table>
       )}
+      {records && records.length > 0 && <Progression records={records} subcategory={subcategory} />}
       {cat.ruleset && (
         <details className="rules">
           <summary>Rules</summary>
@@ -99,5 +103,32 @@ export function BoardPage({ category, variables, me }: { category: string; varia
         </details>
       )}
     </section>
+  )
+}
+
+/** The world record history of the board being shown, newest first. */
+function Progression({ records, subcategory }: { records: WorldRecordView[]; subcategory: { variable: string; value: string }[] }) {
+  const same = (r: WorldRecordView) =>
+    subcategory.every((s) => r.subcategory?.some((x) => x.variable === s.variable && x.value === s.value))
+  const shown = records.filter(same)
+  if (shown.length === 0) return null
+  return (
+    <details className="rules progression">
+      <summary>World record history</summary>
+      <ol className="verdicts">
+        {shown.map((r) => (
+          <li key={r.run.uri}>
+            <Link href={runHref(r.run.uri)}>{formatMs(r.rankedMs)}</Link> by @{r.run.runner.handle ?? r.run.runner.did}
+            <span className="muted small"> · {r.setAt.slice(0, 10)}</span>
+            {r.previous && r.previousRankedMs !== undefined && (
+              <span className="muted small">
+                {' '}
+                (beat @{r.previous.handle ?? r.previous.did}’s {formatMs(r.previousRankedMs)})
+              </span>
+            )}
+          </li>
+        ))}
+      </ol>
+    </details>
   )
 }

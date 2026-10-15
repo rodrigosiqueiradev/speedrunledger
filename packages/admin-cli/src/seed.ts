@@ -209,6 +209,7 @@ export async function seedDemo(log: Log = (line) => console.log(line)): Promise<
     { runner: runners[2], category: seventyRef, ms: t(48, 30, 0), platform: 'VC', verdict: 'verified', by: toad },
     { runner: runners[3], category: seventyRef, ms: t(49, 2, 250), platform: 'N64' },
   ]
+  const flagged: Ref[] = []
   for (const run of runs) {
     const ref = await run.runner.create('run', {
       category: run.category,
@@ -217,6 +218,7 @@ export async function seedDemo(log: Log = (line) => console.log(line)): Promise<
       variables: [{ variable: 'platform', value: run.platform }],
       performedAt: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(),
     })
+    if (run.runner === runners[3] && run.category === seventyRef) flagged.push(ref)
     if (!run.verdict || !run.by) continue
     await until('the run to be indexed', () => appview('getRun', { uri: ref.uri }))
     const { data } = await run.by.agent.com.atproto.server.getServiceAuth({
@@ -236,6 +238,25 @@ export async function seedDemo(log: Log = (line) => console.log(line)): Promise<
     if (!res.ok) throw new Error(`verdict failed: ${await res.text()}`)
   }
 
+  log('toad.test flags a pending run as suspected cheating')
+  const call = async (as: Account, nsid: string, body: unknown) => {
+    const { data } = await as.agent.com.atproto.server.getServiceAuth({
+      aud: process.env.COMMUNITY_SERVICE_DID ?? 'did:web:localhost%3A2586',
+      lxm: `${NS}.${nsid}`,
+    })
+    const res = await fetch(`${env.communityServiceUrl}/xrpc/${NS}.${nsid}`, {
+      method: 'POST',
+      headers: { authorization: `Bearer ${data.token}`, 'content-type': 'application/json' },
+      body: JSON.stringify(body),
+    })
+    if (!res.ok) throw new Error(`${nsid} failed: ${await res.text()}`)
+  }
+  const suspicious = flagged[0]
+  if (suspicious) {
+    await until('the run to be indexed', () => appview('getRun', { uri: suspicious.uri }))
+    await call(toad, 'moderation.flagRun', { run: suspicious.uri, flag: true, reason: 'The audio drifts out of sync around Bowser in the Fire Sea.' })
+  }
+
   log('a runner asks for a second community, left for the sysadmin to answer')
   await runners[1].create('community.request', {
     game: { title: 'Super Mario Sunshine', releaseYear: 2002, platforms: ['GameCube'] },
@@ -249,4 +270,5 @@ export async function seedDemo(log: Log = (line) => console.log(line)): Promise<
   log(`  moderators: ${DEMO.moderators.join(', ')} (Moderator app, http://127.0.0.1:2587)`)
   log(`  runners:    ${DEMO.runners.join(', ')} (Runner app, http://127.0.0.1:2585)`)
   log(`  community:  ${DEMO.community} (${community.did})`)
+  log('World records are announced from sm64.test as Bluesky posts within a few seconds (the community service checks every 2s).')
 }

@@ -19,13 +19,26 @@ interface EligibleRun {
  * its reference checks pass, the runner is not banned and their account is
  * active, and every listed co-runner has confirmed. Each entrant's best run
  * is ranked; equal times share a rank and the run indexed first is listed first.
+ *
+ * When a board's new first place beats the old one, it is recorded as a
+ * world record; `quiet` marks ones found while catching up, which nobody
+ * announces.
  */
-export async function rebuildCategoryBoards(db: Database, categoryUri: string): Promise<void> {
+export async function rebuildCategoryBoards(db: Database, categoryUri: string, opts: { quiet?: boolean } = {}): Promise<void> {
   await db.transaction().execute(async (tx) => {
     // Serialize rebuilds of the same category so the last one to commit read the latest data.
     await sql`SELECT pg_advisory_xact_lock(hashtext(${categoryUri}))`.execute(tx)
 
     const category = await tx.selectFrom('category').selectAll().where('uri', '=', categoryUri).executeTakeFirst()
+    const previousLeaders = await tx
+      .selectFrom('board_entry')
+      .select(['board_key', 'run_uri', 'runner_did', 'ranked_ms'])
+      .distinctOn('board_key')
+      .where('category_uri', '=', categoryUri)
+      .orderBy('board_key')
+      .orderBy('rank')
+      .orderBy('indexed_at')
+      .execute()
     await tx.deleteFrom('board_entry').where('category_uri', '=', categoryUri).execute()
     if (!category) return
 
@@ -116,6 +129,28 @@ export async function rebuildCategoryBoards(db: Database, categoryUri: string): 
         }
       })
       if (values.length > 0) await tx.insertInto('board_entry').values(values).execute()
+
+      const leader = ordered[0]?.[1]
+      const before = previousLeaders.find((p) => p.board_key === key)
+      const beats = leader && (!before || ((leader.ranked_ms as number) - before.ranked_ms) * direction < 0)
+      if (leader && beats && leader.run_uri !== before?.run_uri) {
+        await tx
+          .insertInto('world_record')
+          .values({
+            board_key: key,
+            category_uri: categoryUri,
+            community_did: category.community_did,
+            run_uri: leader.run_uri,
+            runner_did: leader.runner_did,
+            ranked_ms: leader.ranked_ms as number,
+            previous_run_uri: before?.run_uri ?? null,
+            previous_runner_did: before?.runner_did ?? null,
+            previous_ranked_ms: before?.ranked_ms ?? null,
+            quiet: opts.quiet ?? false,
+          })
+          .onConflict((oc) => oc.columns(['board_key', 'run_uri']).doNothing())
+          .execute()
+      }
     }
   })
 }

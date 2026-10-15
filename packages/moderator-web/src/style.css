@@ -21,3 +21,5 @@ table.queue { width: 100%; border-collapse: collapse; background: var(--surface)
 .inline-form { display: flex; gap: 8px; flex-wrap: wrap; align-items: flex-end; }
 .inline-form label { display: flex; flex-direction: column; gap: 4px; font-weight: 600; font-size: 0.9rem; }
 .danger-inline { background: var(--bad); }
+.flag-panel .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.waiting { margin-bottom: 20px; }

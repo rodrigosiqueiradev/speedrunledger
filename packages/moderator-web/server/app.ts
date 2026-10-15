@@ -15,6 +15,7 @@ const root = join(here, '..', here.endsWith(join('dist', 'server')) ? '..' : '')
 const CREATE_VERDICT = ledger.moderation.createVerdict.$nsid
 const CREATE_BAN = ledger.moderation.createBan.$nsid
 const UPDATE_GAME = ledger.moderation.updateGame.$nsid
+const FLAG_RUN = ledger.moderation.flagRun.$nsid
 const PROPOSAL_DAYS = 7
 
 /**
@@ -28,7 +29,7 @@ export const MODERATOR_SCOPE = [
   `repo:${ledger.community.memberAccept.$nsid}`,
   `repo:${ledger.community.proposal.$nsid}`,
   `repo:${ledger.community.vote.$nsid}`,
-  ...[CREATE_VERDICT, CREATE_BAN, UPDATE_GAME].map((nsid) => `rpc:${nsid}?aud=*`),
+  ...[CREATE_VERDICT, CREATE_BAN, UPDATE_GAME, FLAG_RUN].map((nsid) => `rpc:${nsid}?aud=*`),
 ].join(' ')
 
 const clientOf = (res: Response) => res.locals.client as Client
@@ -102,6 +103,9 @@ export class ModeratorWeb {
     })
     app.post('/api/games', this.auth.requireUser, async (req, res) => {
       await this.callCommunityService(res, UPDATE_GAME, req.body)
+    })
+    app.post('/api/flags', this.auth.requireUser, async (req, res) => {
+      await this.callCommunityService(res, FLAG_RUN, req.body)
     })
 
     // Records in the moderator's own repo: accepting a membership, proposing, voting.

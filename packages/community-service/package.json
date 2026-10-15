@@ -21,15 +21,20 @@
   "dependencies": {
     "@atproto/api": "0.27.0",
     "@atproto/common-web": "0.5.14",
+    "@atproto/crypto": "0.5.7",
     "@atproto/lex": "0.3.14",
+    "@atproto/lex-cbor": "0.1.7",
     "@atproto/lex-server": "0.1.21",
     "@speedrunledger/db": "workspace:*",
     "@speedrunledger/lexicon": "workspace:*",
     "kysely": "0.29.6",
-    "pino": "10.4.0"
+    "pino": "10.4.0",
+    "ws": "8.22.0"
   },
   "devDependencies": {
     "@speedrunledger/indexer": "workspace:*",
-    "@speedrunledger/testkit": "workspace:*"
+    "@speedrunledger/testkit": "workspace:*",
+    "@types/ws": "8.18.1",
+    "@speedrunledger/appview": "workspace:*"
   }
 }

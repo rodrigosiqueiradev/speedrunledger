@@ -5,9 +5,31 @@ import type { Me } from '../main.js'
 import { boardHref, editHref, Link, navigate } from '../router.js'
 import { formatMs, StatusBadge } from '@speedrunledger/web-ui'
 
-export function RunPage({ uri, me }: { uri: string; me: Me | null | undefined }) {
+export function RunPage({ uri, me, share }: { uri: string; me: Me | null | undefined; share?: boolean }) {
   const [run, setRun] = useState<RunView>()
   const [error, setError] = useState<string>()
+  const [shared, setShared] = useState<'sharing' | 'shared' | string>()
+  const own = me?.did !== undefined && me?.did === run?.runner.did
+
+  async function shareRun() {
+    if (!run) return
+    setShared('sharing')
+    try {
+      await api.shareRun(run.uri.split('/').pop()!)
+      setShared('shared')
+    } catch (err) {
+      setShared((err as Error).message)
+    }
+  }
+
+  // Arriving from the submit form with "post it on Bluesky" ticked: share once the run is indexed.
+  useEffect(() => {
+    if (share && own && shared === undefined) {
+      void shareRun()
+      history.replaceState(null, '', location.href.replace(/&share=1/, ''))
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [share, own])
   useEffect(() => {
     // A run just submitted takes a moment to reach the index; keep asking for a while.
     let cancelled = false
@@ -29,7 +51,6 @@ export function RunPage({ uri, me }: { uri: string; me: Me | null | undefined })
 
   if (error) return <p className="error">{error}</p>
   if (!run) return <p className="muted">Loading run…</p>
-  const own = me?.did === run.runner.did
   const times = run.verifiedTimes ?? run.times
 
   return (
@@ -44,6 +65,17 @@ export function RunPage({ uri, me }: { uri: string; me: Me | null | undefined })
         <StatusBadge status={run.status} /> {run.rank !== undefined && <strong>Rank {run.rank}</strong>}
       </p>
       {run.problems.length > 0 && <p className="error">Problems: {run.problems.join(', ')}</p>}
+      {run.labels?.some((l) => l.val === 'suspected-cheating') && (
+        <p className="notice flag">
+          <strong>Flagged as suspected cheating</strong> by a moderator
+          {run.labels
+            .filter((l) => l.val === 'suspected-cheating')
+            .map((l) => (l.moderator ? ` (@${l.moderator.handle ?? l.moderator.did})` : ''))
+            .join('')}
+          {run.labels.find((l) => l.reason)?.reason ? `: ${run.labels.find((l) => l.reason)!.reason}` : ''}. This is a warning, not a
+          verdict; the board is unchanged.
+        </p>
+      )}
       <dl className="facts">
         <dt>Times</dt>
         <dd>
@@ -109,6 +141,12 @@ export function RunPage({ uri, me }: { uri: string; me: Me | null | undefined })
           Edit run
         </Link>
       )}{' '}
+      {own && (
+        <button className="secondary" disabled={shared === 'sharing' || shared === 'shared'} onClick={shareRun}>
+          {shared === 'shared' ? 'Posted to Bluesky' : shared === 'sharing' ? 'Posting…' : 'Share to Bluesky'}
+        </button>
+      )}{' '}
+      {shared && !['sharing', 'shared'].includes(shared) && <p className="error">Could not post: {shared}</p>}
       {own && (
         <button
           className="danger"

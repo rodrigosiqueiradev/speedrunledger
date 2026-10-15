@@ -175,6 +175,7 @@ export function ReviewPage({ uri, me }: { uri: string; me: Me }) {
           </button>
         </form>
       )}
+      {!ownRun && <FlagPanel run={run} onChange={(labels) => setRun({ ...run, labels })} />}
       {run.verdicts && run.verdicts.length > 0 && (
         <>
           <h2>Earlier verdicts</h2>
@@ -190,5 +191,55 @@ export function ReviewPage({ uri, me }: { uri: string; me: Me }) {
         </>
       )}
     </section>
+  )
+}
+
+/**
+ * Flags a run as suspected cheating: a signed label Bluesky clients can show,
+ * separate from the verdict, and removable by any moderator.
+ */
+function FlagPanel({ run, onChange }: { run: RunView; onChange: (labels: RunView['labels']) => void }) {
+  const flag = run.labels?.find((l) => l.val === 'suspected-cheating')
+  const [reason, setReason] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string>()
+
+  async function toggle() {
+    setBusy(true)
+    setError(undefined)
+    try {
+      await api.flagRun({ run: run.uri, flag: !flag, reason: reason.trim() || undefined })
+      const { run: fresh } = await api.getRun(run.uri)
+      onChange(fresh.labels)
+      setReason('')
+    } catch (err) {
+      setError((err as Error).message)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <div className="panel flag-panel">
+      <h3>Suspected cheating</h3>
+      {flag ? (
+        <p>
+          Flagged by @{flag.moderator?.handle ?? flag.moderator?.did ?? 'a moderator'}
+          {flag.reason ? `: ${flag.reason}` : ''}.
+        </p>
+      ) : (
+        <p className="muted small">
+          A flag is a public warning label that Bluesky clients can show on the run. It is not a verdict and does not change the
+          board.
+        </p>
+      )}
+      <div className="row">
+        {!flag && <input placeholder="What looks wrong (optional)" value={reason} onChange={(e) => setReason(e.target.value)} />}
+        <button className={flag ? 'secondary' : 'danger-inline'} disabled={busy} onClick={toggle}>
+          {flag ? 'Remove flag' : 'Flag run'}
+        </button>
+      </div>
+      {error && <p className="error">{error}</p>}
+    </div>
   )
 }

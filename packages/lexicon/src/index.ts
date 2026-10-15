@@ -155,3 +155,6 @@ export type VoteView = LexDefs.VoteView
 export type ModeratorView = LexDefs.ModeratorView
 export type BanView = LexDefs.BanView
 export type RequestView = LexDefs.RequestView
+export type LabelView = LexDefs.LabelView
+export type WorldRecordView = LexDefs.WorldRecordView
+export type NotificationView = LexDefs.NotificationView

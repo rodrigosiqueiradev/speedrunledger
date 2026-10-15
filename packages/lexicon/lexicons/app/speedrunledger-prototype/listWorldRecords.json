@@ -1,0 +1,47 @@
+{
+  "lexicon": 1,
+  "id": "app.speedrunledger-prototype.listWorldRecords",
+  "defs": {
+    "main": {
+      "type": "query",
+      "description": "World records as they were set, newest first: a category's progression, or the latest across a community or everywhere.",
+      "parameters": {
+        "type": "params",
+        "properties": {
+          "category": {
+            "type": "string",
+            "format": "at-uri"
+          },
+          "community": {
+            "type": "string",
+            "format": "did"
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100,
+            "default": 50
+          }
+        }
+      },
+      "output": {
+        "encoding": "application/json",
+        "schema": {
+          "type": "object",
+          "required": [
+            "records"
+          ],
+          "properties": {
+            "records": {
+              "type": "array",
+              "items": {
+                "type": "ref",
+                "ref": "app.speedrunledger-prototype.defs#worldRecordView"
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

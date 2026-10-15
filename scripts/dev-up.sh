@@ -27,7 +27,7 @@ ENV
   echo "generated dev secrets in $env_file"
 fi
 # Secrets added after a dev.env was first generated.
-for key in COOKIE_SECRET COMMUNITY_SECRET_KEY COMMUNITY_ADMIN_TOKEN; do
+for key in COOKIE_SECRET COMMUNITY_SECRET_KEY COMMUNITY_ADMIN_TOKEN LABELER_SIGNING_KEY; do
   if ! grep -q "^$key=" "$env_file"; then
     echo "$key=$(openssl rand -hex 32)" >> "$env_file"
   fi
@@ -54,6 +54,7 @@ data:
   cookieSecret: $(b64 "$COOKIE_SECRET")
   communitySecretKey: $(b64 "$COMMUNITY_SECRET_KEY")
   communityAdminToken: $(b64 "$COMMUNITY_ADMIN_TOKEN")
+  labelerSigningKey: $(b64 "$LABELER_SIGNING_KEY")
 YAML
 )
 podman secret rm ledger-dev >/dev/null 2>&1 || true

@@ -293,6 +293,11 @@ type RunView = {
   performedAt: l.DatetimeString
   createdAt: l.DatetimeString
   indexedAt: l.DatetimeString
+
+  /**
+   * Current labels on the run from moderators of its community, such as suspected-cheating.
+   */
+  labels?: LabelView[]
 }
 
 export type { RunView }
@@ -346,6 +351,11 @@ const runView = /*#__PURE__*/ l.typedObject<RunView>(
     performedAt: /*#__PURE__*/ l.string({ format: 'datetime' }),
     createdAt: /*#__PURE__*/ l.string({ format: 'datetime' }),
     indexedAt: /*#__PURE__*/ l.string({ format: 'datetime' }),
+    labels: /*#__PURE__*/ l.optional(
+      /*#__PURE__*/ l.array(
+        /*#__PURE__*/ l.ref<LabelView>((() => labelView) as any),
+      ),
+    ),
   }),
 )
 
@@ -645,3 +655,156 @@ const requestView = /*#__PURE__*/ l.typedObject<RequestView>(
 )
 
 export { requestView }
+
+/** A label the community service signed for a moderator; the signed form is served by com.atproto.label.queryLabels. */
+type LabelView = {
+  $type?: 'app.speedrunledger-prototype.defs#labelView'
+  val: 'suspected-cheating' | l.UnknownString
+
+  /**
+   * The labeler: the community service.
+   */
+  src: l.DidString
+  cts: l.DatetimeString
+  moderator?: ActorView
+  reason?: string
+}
+
+export type { LabelView }
+
+/** A label the community service signed for a moderator; the signed form is served by com.atproto.label.queryLabels. */
+const labelView = /*#__PURE__*/ l.typedObject<LabelView>(
+  $nsid,
+  'labelView',
+  /*#__PURE__*/ l.object({
+    val: /*#__PURE__*/ l.string<{ knownValues: ['suspected-cheating'] }>(),
+    src: /*#__PURE__*/ l.string({ format: 'did' }),
+    cts: /*#__PURE__*/ l.string({ format: 'datetime' }),
+    moderator: /*#__PURE__*/ l.optional(
+      /*#__PURE__*/ l.ref<ActorView>((() => actorView) as any),
+    ),
+    reason: /*#__PURE__*/ l.optional(/*#__PURE__*/ l.string()),
+  }),
+)
+
+export { labelView }
+
+type WorldRecordView = {
+  $type?: 'app.speedrunledger-prototype.defs#worldRecordView'
+  run: RunView
+  category: CategoryView
+  game: GameView
+  community: CommunityView
+  subcategory?: SpeedrunledgerPrototypeRun.VariableValue[]
+  rankedMs: number
+
+  /**
+   * Who held the record before.
+   */
+  previous?: ActorView
+  previousRankedMs?: number
+
+  /**
+   * The community's Bluesky post announcing it.
+   */
+  announcement?: l.AtUriString
+  setAt: l.DatetimeString
+}
+
+export type { WorldRecordView }
+
+const worldRecordView = /*#__PURE__*/ l.typedObject<WorldRecordView>(
+  $nsid,
+  'worldRecordView',
+  /*#__PURE__*/ l.object({
+    run: /*#__PURE__*/ l.ref<RunView>((() => runView) as any),
+    category: /*#__PURE__*/ l.ref<CategoryView>((() => categoryView) as any),
+    game: /*#__PURE__*/ l.ref<GameView>((() => gameView) as any),
+    community: /*#__PURE__*/ l.ref<CommunityView>((() => communityView) as any),
+    subcategory: /*#__PURE__*/ l.optional(
+      /*#__PURE__*/ l.array(
+        /*#__PURE__*/ l.ref<SpeedrunledgerPrototypeRun.VariableValue>(
+          (() => SpeedrunledgerPrototypeRun.variableValue) as any,
+        ),
+      ),
+    ),
+    rankedMs: /*#__PURE__*/ l.integer(),
+    previous: /*#__PURE__*/ l.optional(
+      /*#__PURE__*/ l.ref<ActorView>((() => actorView) as any),
+    ),
+    previousRankedMs: /*#__PURE__*/ l.optional(/*#__PURE__*/ l.integer()),
+    announcement: /*#__PURE__*/ l.optional(
+      /*#__PURE__*/ l.string({ format: 'at-uri' }),
+    ),
+    setAt: /*#__PURE__*/ l.string({ format: 'datetime' }),
+  }),
+)
+
+export { worldRecordView }
+
+type NotificationView = {
+  $type?: 'app.speedrunledger-prototype.defs#notificationView'
+
+  /**
+   * verified, rejected, changesRequested: a verdict on your run. worldRecord: your run took first place. worldRecordBeaten: someone took your first place. flagged: a moderator labeled your run. invited: a community invited you to moderate. vote: a proposal is waiting for your vote.
+   */
+  reason:
+    | 'verified'
+    | 'rejected'
+    | 'changesRequested'
+    | 'worldRecord'
+    | 'worldRecordBeaten'
+    | 'flagged'
+    | 'invited'
+    | 'vote'
+    | l.UnknownString
+
+  /**
+   * The run, membership grant or proposal it is about.
+   */
+  subject: l.AtUriString
+
+  /**
+   * Who caused it: the reviewer, the new record holder, the proposer.
+   */
+  author?: ActorView
+  community?: CommunityView
+
+  /**
+   * A verdict's or proposal's reason, or what the run was.
+   */
+  text?: string
+  indexedAt: l.DatetimeString
+}
+
+export type { NotificationView }
+
+const notificationView = /*#__PURE__*/ l.typedObject<NotificationView>(
+  $nsid,
+  'notificationView',
+  /*#__PURE__*/ l.object({
+    reason: /*#__PURE__*/ l.string<{
+      knownValues: [
+        'verified',
+        'rejected',
+        'changesRequested',
+        'worldRecord',
+        'worldRecordBeaten',
+        'flagged',
+        'invited',
+        'vote',
+      ]
+    }>(),
+    subject: /*#__PURE__*/ l.string({ format: 'at-uri' }),
+    author: /*#__PURE__*/ l.optional(
+      /*#__PURE__*/ l.ref<ActorView>((() => actorView) as any),
+    ),
+    community: /*#__PURE__*/ l.optional(
+      /*#__PURE__*/ l.ref<CommunityView>((() => communityView) as any),
+    ),
+    text: /*#__PURE__*/ l.optional(/*#__PURE__*/ l.string()),
+    indexedAt: /*#__PURE__*/ l.string({ format: 'datetime' }),
+  }),
+)
+
+export { notificationView }

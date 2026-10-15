@@ -37,6 +37,7 @@ export const fail = (status: number, error: string, message: string) => new LexS
 export class CommunityService {
   readonly db: Database
   private clients = new Map<string, Promise<Client>>()
+  private fetchHandlers = new Map<string, (path: string, init: RequestInit) => Promise<Response>>()
 
   constructor(
     readonly config: CommunityServiceConfig,
@@ -113,7 +114,32 @@ export class CommunityService {
   }
 
   private clientFor(session: CredentialSession): Client {
-    return new Client({ did: session.did as `did:${string}:${string}`, fetchHandler: (path, init) => session.fetchHandler(path, init) })
+    const fetchHandler = (path: string, init: RequestInit) => session.fetchHandler(path, init)
+    this.fetchHandlers.set(session.did!, fetchHandler)
+    return new Client({ did: session.did as `did:${string}:${string}`, fetchHandler })
+  }
+
+  /**
+   * Writes a record of a collection outside our lexicons (a Bluesky post, a
+   * feed generator declaration) into an account's repo; the PDS validates it.
+   */
+  async putForeignRecord(did: string, collection: string, rkey: string, record: Record<string, unknown>): Promise<WriteOutput> {
+    await this.requireClient(did)
+    const res = await this.fetchHandlers.get(did)!('/xrpc/com.atproto.repo.putRecord', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ repo: did, collection, rkey, record: { $type: collection, ...record } }),
+    })
+    const body = (await res.json().catch(() => ({}))) as { uri?: string; cid?: string; message?: string; error?: string }
+    if (!res.ok || !body.uri || !body.cid) throw new Error(`putRecord ${collection} failed: ${body.error ?? res.status} ${body.message ?? ''}`)
+    return { uri: body.uri as WriteOutput['uri'], cid: body.cid }
+  }
+
+  /** Whether a record exists in an account's repo. */
+  async hasRecord(pdsUrl: string, did: string, collection: string, rkey: string): Promise<boolean> {
+    const url = new URL('/xrpc/com.atproto.repo.getRecord', pdsUrl)
+    url.search = new URLSearchParams({ repo: did, collection, rkey }).toString()
+    return (await fetch(url)).ok
   }
 
   async isFrozen(community: string): Promise<boolean> {

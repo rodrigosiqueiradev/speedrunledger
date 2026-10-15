@@ -377,6 +377,14 @@
         "indexedAt": {
           "type": "string",
           "format": "datetime"
+        },
+        "labels": {
+          "type": "array",
+          "items": {
+            "type": "ref",
+            "ref": "#labelView"
+          },
+          "description": "Current labels on the run from moderators of its community, such as suspected-cheating."
         }
       }
     },
@@ -728,6 +736,141 @@
           "type": "string",
           "format": "did",
           "description": "The community created from this request."
+        },
+        "indexedAt": {
+          "type": "string",
+          "format": "datetime"
+        }
+      }
+    },
+    "labelView": {
+      "type": "object",
+      "required": [
+        "val",
+        "src",
+        "cts"
+      ],
+      "description": "A label the community service signed for a moderator; the signed form is served by com.atproto.label.queryLabels.",
+      "properties": {
+        "val": {
+          "type": "string",
+          "knownValues": [
+            "suspected-cheating"
+          ]
+        },
+        "src": {
+          "type": "string",
+          "format": "did",
+          "description": "The labeler: the community service."
+        },
+        "cts": {
+          "type": "string",
+          "format": "datetime"
+        },
+        "moderator": {
+          "type": "ref",
+          "ref": "#actorView"
+        },
+        "reason": {
+          "type": "string"
+        }
+      }
+    },
+    "worldRecordView": {
+      "type": "object",
+      "required": [
+        "run",
+        "category",
+        "game",
+        "community",
+        "rankedMs",
+        "setAt"
+      ],
+      "properties": {
+        "run": {
+          "type": "ref",
+          "ref": "#runView"
+        },
+        "category": {
+          "type": "ref",
+          "ref": "#categoryView"
+        },
+        "game": {
+          "type": "ref",
+          "ref": "#gameView"
+        },
+        "community": {
+          "type": "ref",
+          "ref": "#communityView"
+        },
+        "subcategory": {
+          "type": "array",
+          "items": {
+            "type": "ref",
+            "ref": "app.speedrunledger-prototype.run#variableValue"
+          }
+        },
+        "rankedMs": {
+          "type": "integer"
+        },
+        "previous": {
+          "type": "ref",
+          "ref": "#actorView",
+          "description": "Who held the record before."
+        },
+        "previousRankedMs": {
+          "type": "integer"
+        },
+        "announcement": {
+          "type": "string",
+          "format": "at-uri",
+          "description": "The community's Bluesky post announcing it."
+        },
+        "setAt": {
+          "type": "string",
+          "format": "datetime"
+        }
+      }
+    },
+    "notificationView": {
+      "type": "object",
+      "required": [
+        "reason",
+        "subject",
+        "indexedAt"
+      ],
+      "properties": {
+        "reason": {
+          "type": "string",
+          "knownValues": [
+            "verified",
+            "rejected",
+            "changesRequested",
+            "worldRecord",
+            "worldRecordBeaten",
+            "flagged",
+            "invited",
+            "vote"
+          ],
+          "description": "verified, rejected, changesRequested: a verdict on your run. worldRecord: your run took first place. worldRecordBeaten: someone took your first place. flagged: a moderator labeled your run. invited: a community invited you to moderate. vote: a proposal is waiting for your vote."
+        },
+        "subject": {
+          "type": "string",
+          "format": "at-uri",
+          "description": "The run, membership grant or proposal it is about."
+        },
+        "author": {
+          "type": "ref",
+          "ref": "#actorView",
+          "description": "Who caused it: the reviewer, the new record holder, the proposer."
+        },
+        "community": {
+          "type": "ref",
+          "ref": "#communityView"
+        },
+        "text": {
+          "type": "string",
+          "description": "A verdict's or proposal's reason, or what the run was."
         },
         "indexedAt": {
           "type": "string",

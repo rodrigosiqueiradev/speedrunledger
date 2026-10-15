@@ -4,6 +4,7 @@ import { api } from './api.js'
 import { BoardPage } from './pages/BoardPage.js'
 import { HomePage } from './pages/HomePage.js'
 import { MyRunsPage } from './pages/MyRunsPage.js'
+import { lastSeen, NotificationsPage } from './pages/NotificationsPage.js'
 import { RequestPage } from './pages/RequestPage.js'
 import { RunPage } from './pages/RunPage.js'
 import { SubmitPage } from './pages/SubmitPage.js'
@@ -33,6 +34,21 @@ function App() {
     void loadMe()
   }, [loadMe])
 
+  // How many notifications arrived since the runner last looked.
+  const [unread, setUnread] = useState(0)
+  const checkUnread = useCallback(() => {
+    if (!me) return
+    api.listNotifications(me.did).then(
+      ({ notifications }) => setUnread(notifications.filter((n) => n.indexedAt > lastSeen()).length),
+      () => undefined,
+    )
+  }, [me])
+  useEffect(() => {
+    checkUnread()
+    const timer = setInterval(checkUnread, 30_000)
+    return () => clearInterval(timer)
+  }, [checkUnread])
+
   const loginError = location.searchParams.get('loginError')
   let page
   switch (location.pathname) {
@@ -40,7 +56,7 @@ function App() {
       page = <BoardPage category={location.searchParams.get('category') ?? ''} variables={location.searchParams.getAll('var')} me={me} />
       break
     case '/run':
-      page = <RunPage uri={location.searchParams.get('uri') ?? ''} me={me} />
+      page = <RunPage uri={location.searchParams.get('uri') ?? ''} me={me} share={location.searchParams.get('share') === '1'} />
       break
     case '/submit':
       page = (
@@ -50,6 +66,9 @@ function App() {
           me={me}
         />
       )
+      break
+    case '/notifications':
+      page = <NotificationsPage me={me} onSeen={checkUnread} />
       break
     case '/request':
       page = <RequestPage me={me} />
@@ -70,6 +89,11 @@ function App() {
         <nav>
           <Link href="/">Games</Link>
           {me && <Link href="/me">My runs</Link>}
+          {me && (
+            <Link href="/notifications">
+              Notifications{unread > 0 && <span className="badge">{unread}</span>}
+            </Link>
+          )}
           <Link href="/request">Start a community</Link>
         </nav>
         <div className="account">

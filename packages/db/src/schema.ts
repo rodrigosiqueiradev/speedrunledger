@@ -303,7 +303,52 @@ export interface ProposalExecutionTable {
   updated_at: Timestamp
 }
 
+/** A board's new first place, as the indexer saw it happen. */
+export interface WorldRecordTable {
+  id: Generated<number>
+  board_key: string
+  category_uri: string
+  community_did: string
+  run_uri: string
+  runner_did: string
+  ranked_ms: number
+  previous_run_uri: string | null
+  previous_runner_did: string | null
+  previous_ranked_ms: number | null
+  quiet: Generated<boolean>
+  set_at: Generated<Date>
+}
+
+/** The community service's post announcing a world record. */
+export interface AnnouncementTable {
+  world_record_id: number
+  community_did: string
+  game_uri: string
+  post_uri: string | null
+  post_cid: string | null
+  error: string | null
+  posted_at: Timestamp | null
+}
+
+/** A label the community service signed, in order of `seq`. */
+export interface LabelTable {
+  seq: Generated<number>
+  src: string
+  uri: string
+  cid: string | null
+  val: string
+  neg: boolean
+  cts: string
+  sig: Uint8Array
+  community_did: string
+  moderator_did: string
+  reason: string | null
+}
+
 export interface DatabaseSchema {
+  world_record: WorldRecordTable
+  announcement: AnnouncementTable
+  label: LabelTable
   community_credential: CommunityCredentialTable
   intervention: InterventionTable
   request_denial: RequestDenialTable

@@ -24,6 +24,7 @@ export function SubmitPage({ category, edit, me }: { category: string; edit?: st
   const [performedAt, setPerformedAt] = useState(() => new Date().toISOString().slice(0, 10))
   const [comment, setComment] = useState('')
   const [acknowledged, setAcknowledged] = useState(false)
+  const [share, setShare] = useState(false)
 
   useEffect(() => {
     if (edit) {
@@ -92,7 +93,7 @@ export function SubmitPage({ category, edit, me }: { category: string; edit?: st
         performedAt: new Date(`${performedAt}T12:00:00Z`).toISOString(),
       }
       const out = original ? await api.updateRun(original.uri.split('/').pop()!, run) : await api.submitRun(run)
-      navigate(runHref(out.uri))
+      navigate(share ? `${runHref(out.uri)}&share=1` : runHref(out.uri))
     } catch (err) {
       setError((err as Error).message)
     } finally {
@@ -194,6 +195,10 @@ export function SubmitPage({ category, edit, me }: { category: string; edit?: st
             </label>
           </div>
         )}
+        <label className="check">
+          <input name="share" type="checkbox" checked={share} onChange={(e) => setShare(e.target.checked)} /> Also post it on
+          Bluesky from your account
+        </label>
         {error && <p className="error">{error}</p>}
         <button type="submit" disabled={busy}>
           {busy ? 'Saving…' : original ? 'Save changes' : 'Submit run'}

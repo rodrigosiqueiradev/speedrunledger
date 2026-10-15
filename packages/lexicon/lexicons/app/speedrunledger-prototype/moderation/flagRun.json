@@ -1,0 +1,72 @@
+{
+  "lexicon": 1,
+  "id": "app.speedrunledger-prototype.moderation.flagRun",
+  "defs": {
+    "main": {
+      "type": "procedure",
+      "description": "Served by the community service. Labels a run suspected-cheating (or removes the label) as an atproto label signed by the service's labeler key, naming the moderator. Any single active moderator of the run's community can flag; the label is a warning, not a verdict, and does not change the board.",
+      "input": {
+        "encoding": "application/json",
+        "schema": {
+          "type": "object",
+          "required": [
+            "run",
+            "flag"
+          ],
+          "properties": {
+            "run": {
+              "type": "string",
+              "format": "at-uri"
+            },
+            "flag": {
+              "type": "boolean",
+              "description": "false removes the label."
+            },
+            "reason": {
+              "type": "string",
+              "maxLength": 10000,
+              "maxGraphemes": 1000
+            }
+          }
+        }
+      },
+      "output": {
+        "encoding": "application/json",
+        "schema": {
+          "type": "object",
+          "required": [
+            "seq"
+          ],
+          "properties": {
+            "seq": {
+              "type": "integer"
+            }
+          }
+        }
+      },
+      "errors": [
+        {
+          "name": "NotModerator"
+        },
+        {
+          "name": "Banned"
+        },
+        {
+          "name": "CommunityFrozen"
+        },
+        {
+          "name": "CommunityNotManaged"
+        },
+        {
+          "name": "RunNotFound"
+        },
+        {
+          "name": "LabelerDisabled"
+        },
+        {
+          "name": "NoChange"
+        }
+      ]
+    }
+  }
+}

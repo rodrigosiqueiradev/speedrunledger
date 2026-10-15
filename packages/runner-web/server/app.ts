@@ -17,7 +17,60 @@ export const RUNNER_SCOPE = [
   `repo:${ledger.run.$nsid}`,
   `repo:${ledger.runParticipant.$nsid}`,
   `repo:${ledger.community.request.$nsid}`,
+  // Share to Bluesky: a post in the runner's own repo linking the run.
+  'repo:app.bsky.feed.post?action=create',
 ].join(' ')
+
+/** 15:02.340 or 1:02:03.000. */
+function formatMs(ms: number): string {
+  const h = Math.floor(ms / 3_600_000)
+  const m = Math.floor((ms % 3_600_000) / 60_000)
+  const sec = Math.floor((ms % 60_000) / 1000)
+  const rest = String(ms % 1000).padStart(3, '0')
+  return `${h > 0 ? `${h}:${String(m).padStart(2, '0')}` : m}:${String(sec).padStart(2, '0')}.${rest}`
+}
+
+const STATUS_TEXT: Record<string, string> = {
+  verified: 'verified',
+  pending: 'waiting for review',
+  changesRequested: 'waiting for changes',
+  rejected: 'rejected',
+  invalid: 'not valid',
+}
+
+/**
+ * The Bluesky post for sharing a run: what it was, its status and rank, and a
+ * link to it, both as a facet and as an external card.
+ */
+export function sharePost(
+  run: { uri: string; status: string; rank?: number; times: Record<string, number | undefined>; verifiedTimes?: Record<string, number | undefined> },
+  context: { game: string; category: string; primaryTiming: string },
+  runUrl: string,
+) {
+  const key = `${context.primaryTiming}Ms`
+  const ms = (run.verifiedTimes ?? run.times)[key] ?? run.times[key]
+  const time = ms === undefined ? '' : ` in ${formatMs(ms)}`
+  const standing = run.status === 'verified' && run.rank ? `, rank ${run.rank}` : ''
+  const head = `I ran ${context.game} ${context.category}${time} (${STATUS_TEXT[run.status] ?? run.status}${standing}). `
+  const link = 'See the run'
+  const byteStart = Buffer.byteLength(head)
+  return {
+    $type: 'app.bsky.feed.post',
+    text: head + link,
+    facets: [
+      {
+        index: { byteStart, byteEnd: byteStart + Buffer.byteLength(link) },
+        features: [{ $type: 'app.bsky.richtext.facet#link', uri: runUrl }],
+      },
+    ],
+    embed: {
+      $type: 'app.bsky.embed.external',
+      external: { uri: runUrl, title: `${context.game} ${context.category}${time}`, description: 'On SpeedrunLedger: runs in runners’ own repos, verified by game communities.' },
+    },
+    langs: ['en'],
+    createdAt: new Date().toISOString(),
+  }
+}
 
 /** Builds the run record from the form, adding timestamps; throws on invalid input. */
 export function buildRun(input: Record<string, unknown>): RunRecord {
@@ -86,6 +139,32 @@ export class RunnerWeb {
     app.delete('/api/runs/:rkey', this.auth.requireUser, async (req, res) => {
       await clientOf(res).delete(ledger.run, { rkey: String(req.params.rkey) })
       res.json({})
+    })
+
+    /** Posts a run to Bluesky from the runner's own account. */
+    app.post('/api/runs/:rkey/share', this.auth.requireUser, async (req, res) => {
+      const did = res.locals.did as string
+      const uri = `at://${did}/${ledger.run.$nsid}/${String(req.params.rkey)}`
+      const appview = (path: string) => fetch(new URL(path, this.config.appviewUrl)).then((r) => (r.ok ? (r.json() as Promise<any>) : undefined))
+      const found = await appview(`/xrpc/app.speedrunledger-prototype.getRun?${new URLSearchParams({ uri })}`)
+      if (!found) {
+        res.status(404).json({ error: 'RunNotFound', message: 'That run is not indexed yet; try again in a moment' })
+        return
+      }
+      const board = await appview(`/xrpc/app.speedrunledger-prototype.getLeaderboard?${new URLSearchParams({ category: found.run.category, limit: '1' })}`)
+      if (!board) {
+        res.status(404).json({ error: 'NotFound', message: 'The run’s category is not indexed' })
+        return
+      }
+      const runUrl = `${this.config.publicUrl}/run?${new URLSearchParams({ uri })}`
+      const record = sharePost(found.run, { game: board.game.title, category: board.category.name, primaryTiming: board.category.primaryTiming }, runUrl)
+      const session = res.locals.session as { fetchHandler: (path: string, init: RequestInit) => Promise<globalThis.Response> }
+      const out = await session.fetchHandler('/xrpc/com.atproto.repo.createRecord', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ repo: did, collection: 'app.bsky.feed.post', record }),
+      })
+      res.status(out.status).type('application/json').send(await out.text())
     })
 
     /** Asks the sysadmins for a community; founders are given as handles or DIDs. */

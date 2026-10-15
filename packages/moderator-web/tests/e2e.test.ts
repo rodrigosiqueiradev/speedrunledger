@@ -60,6 +60,7 @@ beforeAll(async () => {
       pdsUrl: env.pdsUrl,
       executorIntervalMs: 0,
       devMode: true,
+      labelerSigningKey: randomBytes(32).toString('hex'),
     },
     pino({ level: 'silent' }),
   )
@@ -231,6 +232,8 @@ describe('community management', () => {
 
     // B votes yes; the proposal passes and the community service carries it out.
     const pageB = await signIn(b)
+    await reloadUntil(pageB, moderatorWeb.config.publicUrl, () => shows(pageB, 'Waiting for your vote'))
+    await pageB.getByText('Has been verifying 16 Star runs informally for months').waitFor()
     await reloadUntil(pageB, manage('proposals'), () => shows(pageB, 'Vote yes'))
     await pageB.fill('input[placeholder="Why (optional)"]', 'Agreed')
     await Promise.all([pageB.waitForResponse((r) => r.url().endsWith('/api/votes') && r.ok()), pageB.click('button:has-text("Vote yes")')])
@@ -275,6 +278,24 @@ describe('community management', () => {
       return res.community.games[0].game.platforms.includes('Switch') ? res.community.games : undefined
     })
     expect(games[0].game).toMatchObject({ title: 'Super Mario 64', platforms: ['N64', 'Switch'] })
+    await page.close()
+  }, 120_000)
+
+  it('flags a run as suspected cheating and removes the flag', async () => {
+    const mod = community.moderators[0].account
+    const runner = await createAccount(env, 'fl')
+    const run = await putRecord(runner, ids.run, runRecord(community.categories.sixteenStar))
+    const page = await signIn(mod)
+    await reloadUntil(page, `${moderatorWeb.config.publicUrl}/review?${new URLSearchParams({ uri: run.uri })}`, () => shows(page, 'Flag run'))
+    await page.fill('input[placeholder="What looks wrong (optional)"]', 'Timer jumps at 9:12')
+    await page.click('button:has-text("Flag run")')
+    await page.getByText('Flagged by @' + mod.handle + ': Timer jumps at 9:12.').waitFor()
+    const flagged = await xrpc('getRun', { uri: run.uri })
+    expect(flagged.run.labels).toEqual([expect.objectContaining({ val: 'suspected-cheating', reason: 'Timer jumps at 9:12' })])
+
+    await page.click('button:has-text("Remove flag")')
+    await page.getByText('Flag run').waitFor()
+    expect((await xrpc('getRun', { uri: run.uri })).run.labels).toBeUndefined()
     await page.close()
   }, 120_000)
 })

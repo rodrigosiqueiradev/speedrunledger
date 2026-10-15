@@ -9,7 +9,9 @@ import type {
   CommunityDetail,
   CommunityView,
   GameView,
+  LabelView,
   RunView,
+  WorldRecordView,
 } from '@speedrunledger/lexicon'
 import type { Selectable } from 'kysely'
 
@@ -234,7 +236,7 @@ export class Views {
   async runs(rows: Row<'run'>[], opts: { verdicts?: boolean } = {}): Promise<RunView[]> {
     if (rows.length === 0) return []
     const uris = rows.map((r) => r.uri)
-    const [verdicts, ranks] = await Promise.all([
+    const [verdicts, ranks, labels] = await Promise.all([
       this.db
         .selectFrom('verification')
         .selectAll()
@@ -244,6 +246,7 @@ export class Views {
         .orderBy('uri', 'desc')
         .execute(),
       this.db.selectFrom('board_entry').select(['run_uri', 'rank']).where('run_uri', 'in', uris).execute(),
+      this.labels(uris),
     ])
     const actors = await this.actors([...rows.map((r) => r.runner_did), ...verdicts.map((v) => v.reviewer_did)])
     const rankByRun = new Map(ranks.map((r) => [r.run_uri, r.rank]))
@@ -273,6 +276,7 @@ export class Views {
         comment: run.comment ?? undefined,
         problems: run.problems,
         rank: rankByRun.get(run.uri),
+        labels: labels.get(run.uri)?.length ? labels.get(run.uri) : undefined,
         verdicts: opts.verdicts
           ? own.map((v) =>
               compact({
@@ -296,5 +300,74 @@ export class Views {
       }) as RunView
     })
   }
-}
 
+  /** Labels currently on each URI: the newest label per value, unless it was a negation. */
+  async labels(uris: string[]): Promise<Map<string, LabelView[]>> {
+    const map = new Map<string, LabelView[]>()
+    if (uris.length === 0) return map
+    const rows = await this.db
+      .selectFrom('label')
+      .select(['uri', 'src', 'val', 'neg', 'cts', 'moderator_did', 'reason'])
+      .distinctOn(['uri', 'src', 'val'])
+      .where('uri', 'in', uris)
+      .orderBy('uri')
+      .orderBy('src')
+      .orderBy('val')
+      .orderBy('seq', 'desc')
+      .execute()
+    const current = rows.filter((r) => !r.neg)
+    const actors = await this.actors(current.map((r) => r.moderator_did))
+    for (const r of current) {
+      const list = map.get(r.uri) ?? []
+      list.push(compact({ val: r.val, src: r.src, cts: r.cts, moderator: actors.get(r.moderator_did), reason: r.reason ?? undefined }) as LabelView)
+      map.set(r.uri, list)
+    }
+    return map
+  }
+
+  /** World records with their runs, categories, games and communities. */
+  async worldRecords(rows: Row<'world_record'>[]): Promise<WorldRecordView[]> {
+    if (rows.length === 0) return []
+    const [runs, categories, announcements] = await Promise.all([
+      this.db.selectFrom('run').selectAll().where('uri', 'in', rows.map((r) => r.run_uri)).execute(),
+      this.db.selectFrom('category').selectAll().where('uri', 'in', rows.map((r) => r.category_uri)).execute(),
+      this.db
+        .selectFrom('announcement')
+        .select(['world_record_id', 'post_uri'])
+        .where('world_record_id', 'in', rows.map((r) => r.id))
+        .execute(),
+    ])
+    const [games, communities, runViews, previous] = await Promise.all([
+      categories.length ? this.db.selectFrom('game').selectAll().where('uri', 'in', categories.map((c) => c.game_uri)).execute() : [],
+      this.db.selectFrom('community').selectAll().where('did', 'in', rows.map((r) => r.community_did)).execute(),
+      this.runs(runs),
+      this.actors(rows.flatMap((r) => (r.previous_runner_did ? [r.previous_runner_did] : []))),
+    ])
+    const communityViews = await this.communities(communities)
+    const out: WorldRecordView[] = []
+    for (const r of rows) {
+      const run = runViews.find((v) => v.uri === r.run_uri)
+      const category = categories.find((c) => c.uri === r.category_uri)
+      const game = category && games.find((g) => g.uri === category.game_uri)
+      const community = communityViews.get(r.community_did)
+      // A run deleted since keeps its place in history only while it exists.
+      if (!run || !category || !game || !community) continue
+      const subcategoryVars = (category.variables as CategoryVariable[]).filter((v) => v.subcategory).map((v) => v.id)
+      out.push(
+        compact({
+          run,
+          category: this.category(category),
+          game: this.game(game),
+          community,
+          subcategory: run.variables.filter((v) => subcategoryVars.includes(v.variable)),
+          rankedMs: r.ranked_ms,
+          previous: r.previous_runner_did ? previous.get(r.previous_runner_did) : undefined,
+          previousRankedMs: r.previous_ranked_ms ?? undefined,
+          announcement: announcements.find((a) => a.world_record_id === r.id)?.post_uri ?? undefined,
+          setAt: iso(r.set_at),
+        }) as WorldRecordView,
+      )
+    }
+    return out
+  }
+}

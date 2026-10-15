@@ -4,4 +4,5 @@
 
 export * as createBan from './moderation/createBan.js'
 export * as createVerdict from './moderation/createVerdict.js'
+export * as flagRun from './moderation/flagRun.js'
 export * as updateGame from './moderation/updateGame.js'

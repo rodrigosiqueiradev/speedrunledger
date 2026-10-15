@@ -1,4 +1,4 @@
-import type { MembershipView } from '@speedrunledger/lexicon'
+import type { MembershipView, NotificationView } from '@speedrunledger/lexicon'
 import { useEffect, useState } from 'react'
 import { api } from '../api.js'
 import { useAction, useRefresh } from '../hooks.js'
@@ -8,9 +8,14 @@ import { communityHref, Link, queueHref } from '../router.js'
 export function HomePage({ me }: { me: Me }) {
   const [memberships, setMemberships] = useState<MembershipView[]>()
   const [error, setError] = useState<string>()
+  const [waiting, setWaiting] = useState<NotificationView[]>([])
   const [version, refresh] = useRefresh()
   useEffect(() => {
     api.listMemberships(me.did).then((r) => setMemberships(r.memberships), (e) => setError(e.message))
+    api.listNotifications(me.did).then(
+      (r) => setWaiting(r.notifications.filter((n) => n.reason === 'vote')),
+      () => undefined,
+    )
   }, [me.did, version])
 
   if (error) return <p className="error">{error}</p>
@@ -28,6 +33,19 @@ export function HomePage({ me }: { me: Me }) {
   }
   return (
     <section>
+      {waiting.length > 0 && (
+        <div className="panel waiting">
+          <h2>Waiting for your vote</h2>
+          <ul className="verdicts">
+            {waiting.map((n) => (
+              <li key={n.subject}>
+                <Link href={communityHref(n.community!.did, 'proposals')}>{n.community?.name}</Link>: @
+                {n.author?.handle ?? n.author?.did} proposed “{n.text}”
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
       <h1>Your communities</h1>
       <div className="cards">
         {memberships.map((m) => (

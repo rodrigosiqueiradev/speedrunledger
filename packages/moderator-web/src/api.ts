@@ -4,6 +4,7 @@ import type {
   CommunityDetail,
   MembershipView,
   ModeratorView,
+  NotificationView,
   ProposalView,
   QueueItem,
   RunTimes,
@@ -56,6 +57,8 @@ export const api = {
   propose: (input: { community: string; action: ProposalAction; reason: string }) => postJson<StrongRef>('/api/proposals', input),
   vote: (input: { proposal: StrongRef; value: 'yes' | 'no'; reason?: string }) => postJson<StrongRef>('/api/votes', input),
   createBan: (input: { community: string; subject: string; reason: string }) => postJson<StrongRef>('/api/bans', input),
+  flagRun: (input: { run: string; flag: boolean; reason?: string }) => postJson<{ seq: number }>('/api/flags', input),
+  listNotifications: (actor: string) => query<{ notifications: NotificationView[] }>('listNotifications', { actor, limit: '50' }),
   updateGame: (input: { game: string; title?: string; releaseYear?: number; platforms?: string[] }) =>
     postJson<StrongRef>('/api/games', input),
 }

@@ -236,3 +236,12 @@ spec:
             secretKeyRef:
               name: ledger-dev
               key: pdsAdminPassword
+        - name: RUNNER_PUBLIC_URL
+          value: http://127.0.0.1:2585
+        - name: FEED_SERVICE_DID
+          value: did:web:localhost%3A2584
+        - name: LABELER_SIGNING_KEY
+          valueFrom:
+            secretKeyRef:
+              name: ledger-dev
+              key: labelerSigningKey

@@ -1,11 +1,21 @@
 import { LexRouter, LexServerError } from '@atproto/lex-server'
 import { sql } from 'kysely'
 import { boardKey, type CategoryVariable, type Database } from '@speedrunledger/db'
-import { platformDid } from '@speedrunledger/db'
-import { ledger, type MembershipView, type QueueItem, type RequestView, type RunView } from '@speedrunledger/lexicon'
+import { platformDid, tallyProposals } from '@speedrunledger/db'
+import { ledger, type MembershipView, type NotificationView, type QueueItem, type RequestView, type RunView } from '@speedrunledger/lexicon'
 import { Views } from './views.js'
 
 const notFound = (message: string) => new LexServerError(404, { error: 'NotFound', message })
+/** 15:02.340 or 1:02:03.000, as the apps show times. */
+export function formatMs(ms: number): string {
+  const h = Math.floor(ms / 3_600_000)
+  const m = Math.floor((ms % 3_600_000) / 60_000)
+  const sec = Math.floor((ms % 60_000) / 1000)
+  const rest = String(ms % 1000).padStart(3, '0')
+  const mm = h > 0 ? String(m).padStart(2, '0') : String(m)
+  return `${h > 0 ? `${h}:` : ''}${mm}:${String(sec).padStart(2, '0')}.${rest}`
+}
+
 const invalid = (message: string) => new LexServerError(400, { error: 'InvalidRequest', message })
 
 /** XRPC queries of the AppView, served from the indexer's database. */
@@ -332,5 +342,136 @@ export function createRouter(db: Database): LexRouter {
           runs: await views.runs(rows),
         },
       }
+    })
+    .add(ledger.listWorldRecords, async ({ params }) => {
+      let query = db.selectFrom('world_record').selectAll().orderBy('set_at', 'desc').orderBy('id', 'desc').limit(params.limit ?? 50)
+      if (params.category) query = query.where('category_uri', '=', params.category)
+      if (params.community) query = query.where('community_did', '=', params.community)
+      return { body: { records: await views.worldRecords(await query.execute()) } }
+    })
+    .add(ledger.listNotifications, async ({ params }) => {
+      const actor = params.actor
+      const limit = params.limit ?? 50
+      const [verdicts, records, beaten, flags, invites, ballots] = await Promise.all([
+        db
+          .selectFrom('verification as v')
+          .innerJoin('run as r', (j) => j.onRef('r.uri', '=', 'v.subject_uri').onRef('r.community_did', '=', 'v.community_did'))
+          .innerJoin('category as c', 'c.uri', 'r.category_uri')
+          .select(['v.status', 'v.reason', 'v.reviewer_did', 'v.indexed_at', 'r.uri', 'r.community_did', 'c.name'])
+          .where('r.runner_did', '=', actor)
+          .where('v.reviewer_active', '=', true)
+          .orderBy('v.indexed_at', 'desc')
+          .limit(limit)
+          .execute(),
+        db
+          .selectFrom('world_record as w')
+          .innerJoin('category as c', 'c.uri', 'w.category_uri')
+          .select(['w.run_uri', 'w.community_did', 'w.ranked_ms', 'w.set_at', 'c.name'])
+          .where('w.runner_did', '=', actor)
+          .orderBy('w.set_at', 'desc')
+          .limit(limit)
+          .execute(),
+        db
+          .selectFrom('world_record as w')
+          .innerJoin('category as c', 'c.uri', 'w.category_uri')
+          .select(['w.run_uri', 'w.runner_did', 'w.community_did', 'w.ranked_ms', 'w.set_at', 'c.name'])
+          .where('w.previous_runner_did', '=', actor)
+          .where('w.runner_did', '!=', actor)
+          .orderBy('w.set_at', 'desc')
+          .limit(limit)
+          .execute(),
+        db
+          .selectFrom('label as l')
+          .innerJoin('run as r', 'r.uri', 'l.uri')
+          .select(['l.uri', 'l.neg', 'l.val', 'l.moderator_did', 'l.reason', 'l.cts', 'l.community_did'])
+          .where('r.runner_did', '=', actor)
+          .where('l.neg', '=', false)
+          .orderBy('l.seq', 'desc')
+          .limit(limit)
+          .execute(),
+        db.selectFrom('community_member').selectAll().where('member_did', '=', actor).where('active', '=', false).execute(),
+        db
+          .selectFrom('proposal as p')
+          .selectAll('p')
+          .where(sql<boolean>`p.electorate ? ${actor}`)
+          .where('p.proposer_did', '!=', actor)
+          .where(sql<boolean>`p.problems = '[]'::jsonb`)
+          .where(({ not, exists, selectFrom }) =>
+            not(exists(selectFrom('vote as v').select('v.uri').whereRef('v.proposal_uri', '=', 'p.uri').where('v.voter_did', '=', actor))),
+          )
+          .orderBy('p.first_indexed_at', 'desc')
+          .limit(limit)
+          .execute(),
+      ])
+      const tallies = await tallyProposals(db, ballots)
+      const open = ballots.filter((p) => tallies.get(p.uri)?.status === 'open')
+
+      type Item = { reason: string; subject: string; text?: string; indexedAt: string; authorDid?: string; communityDid: string }
+      const items: Item[] = [
+        ...verdicts.map((v) => ({
+          reason: v.status,
+          subject: v.uri,
+          authorDid: v.reviewer_did,
+          communityDid: v.community_did,
+          text: v.reason ?? `Your ${v.name} run`,
+          indexedAt: v.indexed_at.toISOString(),
+        })),
+        ...records.map((w) => ({
+          reason: 'worldRecord',
+          subject: w.run_uri,
+          communityDid: w.community_did,
+          text: `${w.name} in ${formatMs(w.ranked_ms)}`,
+          indexedAt: w.set_at.toISOString(),
+        })),
+        ...beaten.map((w) => ({
+          reason: 'worldRecordBeaten',
+          subject: w.run_uri,
+          authorDid: w.runner_did,
+          communityDid: w.community_did,
+          text: `${w.name} in ${formatMs(w.ranked_ms)}`,
+          indexedAt: w.set_at.toISOString(),
+        })),
+        ...flags.map((l) => ({
+          reason: 'flagged',
+          subject: l.uri,
+          authorDid: l.moderator_did,
+          communityDid: l.community_did,
+          text: l.reason ?? undefined,
+          indexedAt: l.cts,
+        })),
+        ...invites.map((m) => ({
+          reason: 'invited',
+          subject: m.uri,
+          communityDid: m.community_did,
+          indexedAt: m.indexed_at.toISOString(),
+        })),
+        ...open.map((p) => ({
+          reason: 'vote',
+          subject: p.uri,
+          authorDid: p.proposer_did,
+          communityDid: p.community_did,
+          text: p.reason,
+          indexedAt: p.first_indexed_at.toISOString(),
+        })),
+      ]
+      items.sort((a, b) => b.indexedAt.localeCompare(a.indexedAt))
+      const page = items.slice(0, limit)
+      const communities = page.length
+        ? await db.selectFrom('community').selectAll().where('did', 'in', page.map((i) => i.communityDid)).execute()
+        : []
+      const [actors, communityViews] = await Promise.all([
+        views.actors(page.flatMap((i) => (i.authorDid ? [i.authorDid] : []))),
+        views.communities(communities),
+      ])
+      const notifications = page.map(({ authorDid, communityDid, ...rest }) =>
+        Object.fromEntries(
+          Object.entries({
+            ...rest,
+            author: authorDid ? actors.get(authorDid) : undefined,
+            community: communityViews.get(communityDid),
+          }).filter(([, v]) => v !== undefined),
+        ) as unknown as NotificationView,
+      )
+      return { body: { notifications } }
     })
 }

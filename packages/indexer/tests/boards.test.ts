@@ -193,3 +193,49 @@ describe('leaderboards', () => {
     await settledBoard(category.uri, (e) => e.runner_did, [runner.did])
   })
 })
+
+describe('world records', () => {
+  it('records each new first place that beats the old one, and nothing else', async () => {
+    const community = await setupCommunity(env)
+    await activeMods(community)
+    const category = community.categories.sixteenStar
+    const [ann, ben] = await Promise.all(['ann', 'ben'].map((p) => createAccount(env, p)))
+    const records = () =>
+      service.db
+        .selectFrom('world_record')
+        .select(['run_uri', 'runner_did', 'ranked_ms', 'previous_runner_did', 'quiet'])
+        .where('category_uri', '=', category.uri)
+        .orderBy('id')
+        .execute()
+
+    const first = await submit(ann, category, 950_000)
+    await indexed(await verify(community, first))
+    await settledBoard(category.uri, (e) => e.run_uri, [first.uri])
+
+    // Slower runs and ties don't take first place.
+    const slower = await submit(ben, category, 960_000)
+    await indexed(await verify(community, slower))
+    await settledBoard(category.uri, (e) => e.run_uri, [first.uri, slower.uri])
+
+    const faster = await submit(ben, category, 940_000)
+    await indexed(await verify(community, faster))
+    await settledBoard(category.uri, (e) => e.run_uri, [faster.uri, first.uri])
+
+    expect(await records()).toEqual([
+      { run_uri: first.uri, runner_did: ann.did, ranked_ms: 950_000, previous_runner_did: null, quiet: false },
+      { run_uri: faster.uri, runner_did: ben.did, ranked_ms: 940_000, previous_runner_did: ann.did, quiet: false },
+    ])
+
+    // Losing first place to a ban doesn't make the next run a record.
+    await indexed(
+      await putRecord(community.account, ids.communityBan, {
+        subject: ben.did,
+        moderator: community.moderators[0].account.did,
+        reason: 'Spliced',
+        createdAt: now(),
+      }),
+    )
+    await settledBoard(category.uri, (e) => e.run_uri, [first.uri])
+    expect(await records()).toHaveLength(2)
+  })
+})

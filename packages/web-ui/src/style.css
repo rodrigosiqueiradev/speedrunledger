@@ -90,3 +90,8 @@ table.board { width: 100%; border-collapse: collapse; background: var(--surface)
   .board th:last-child, .board td:last-child { display: none; }
   .top { gap: 12px; }
 }
+.badge { display: inline-block; min-width: 1.4em; margin-left: 4px; padding: 0 5px; border-radius: 999px; background: var(--accent); color: var(--accent-ink); font-size: 0.75rem; font-weight: 700; text-align: center; }
+.notice.flag { border-color: var(--bad); background: color-mix(in srgb, var(--bad) 8%, transparent); }
+.notifications li.new { border-left: 3px solid var(--accent); padding-left: 10px; }
+button.secondary, .button.secondary { background: var(--surface); color: var(--text); border: 1px solid var(--line); }
+.progression summary { cursor: pointer; font-weight: 600; }

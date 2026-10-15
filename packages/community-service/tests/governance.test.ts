@@ -181,9 +181,9 @@ describe('moderator actions', () => {
       reason: 'Spliced video',
     })
     expect(ban.status).toBe(200)
-    const again = await callAs(h.server, b, ledger.moderation.createBan.$nsid, { community: community.did, subject: cheater.did, reason: 'x' })
     await waitFor(async () => h.db.selectFrom('ban').select('uri').where('uri', '=', ban.body.uri).executeTakeFirst())
-    expect([200, 409]).toContain(again.status)
+    const again = await callAs(h.server, b, ledger.moderation.createBan.$nsid, { community: community.did, subject: cheater.did, reason: 'x' })
+    expect(again.body.error).toBe('AlreadyBanned')
 
     const banRow = await h.db.selectFrom('ban').select(['uri', 'cid']).where('subject_did', '=', cheater.did).executeTakeFirstOrThrow()
     const proposal = await propose(b, { $type: `${ids.communityProposal}#liftBan`, ban: banRow })

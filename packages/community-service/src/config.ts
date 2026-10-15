@@ -16,6 +16,12 @@ export interface CommunityServiceConfig {
   executorIntervalMs: number
   /** Allows plain-http DID and PDS lookups. */
   devMode: boolean
+  /** The Runner app's public URL, for links in world-record posts. */
+  runnerAppUrl?: string
+  /** The world-record feed generator's DID (the AppView), named in feed declarations. */
+  feedServiceDid?: string
+  /** secp256k1 private key, hex: signs suspected-cheating labels. Without it, flagging is off. */
+  labelerSigningKey?: string
 }
 
 export function readConfig(env: NodeJS.ProcessEnv = process.env): CommunityServiceConfig {
@@ -39,5 +45,8 @@ export function readConfig(env: NodeJS.ProcessEnv = process.env): CommunityServi
     pdsAdminPassword: env.PDS_ADMIN_PASSWORD,
     executorIntervalMs: Number(env.EXECUTOR_INTERVAL_MS ?? 2000),
     devMode: env.DEV_MODE ? env.DEV_MODE === 'true' : (plcUrl?.startsWith('http:') ?? false),
+    runnerAppUrl: env.RUNNER_PUBLIC_URL,
+    feedServiceDid: env.FEED_SERVICE_DID,
+    labelerSigningKey: env.LABELER_SIGNING_KEY,
   }
 }

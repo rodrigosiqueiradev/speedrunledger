@@ -178,4 +178,57 @@ describe('runner app', () => {
     })
     await page.close()
   }, 120_000)
+
+  it('shares a run to Bluesky from the runner’s account, and lists verdicts as notifications', async () => {
+    const runner = await createAccount(env, 'sh')
+    const page = await browser.newPage()
+    await signInWithOAuth(page, { appUrl: runnerWeb.config.publicUrl, pdsUrl: env.pdsUrl, handle: runner.handle, password: runner.password })
+    const category = community.categories.seventyStar
+    await page.goto(`${runnerWeb.config.publicUrl}/submit?category=${encodeURIComponent(category.uri)}`)
+    await page.fill('input[name=realTime]', '48:01.500')
+    await page.fill('input[name=video]', 'https://www.youtube.com/watch?v=dQw4w9WgXcQ')
+    await page.check('input[name=acknowledge]')
+    await page.check('input[name=share]')
+    await page.click('button:has-text("Submit run")')
+    await page.waitForURL(/\/run\?/)
+    await page.getByText('Posted to Bluesky').waitFor({ timeout: 20_000 })
+    const runUri = new URL(page.url()).searchParams.get('uri')!
+
+    const url = new URL('/xrpc/com.atproto.repo.listRecords', env.pdsUrl)
+    url.search = new URLSearchParams({ repo: runner.did, collection: 'app.bsky.feed.post' }).toString()
+    const { records } = (await (await fetch(url)).json()) as any
+    expect(records).toHaveLength(1)
+    expect(records[0].value.text).toBe('I ran Super Mario 64 70 Star in 48:01.500 (waiting for review). See the run')
+    expect(records[0].value.embed.external.uri).toBe(`${runnerWeb.config.publicUrl}/run?${new URLSearchParams({ uri: runUri })}`)
+
+    // A verdict shows up in notifications, with a count in the header until opened.
+    const run = await waitFor(() => indexer.indexer.db.selectFrom('run').select(['uri', 'cid']).where('uri', '=', runUri).executeTakeFirst())
+    await putRecord(community.account, ids.verification, {
+      subject: run,
+      status: 'changesRequested',
+      reason: 'Please show the timer at the end',
+      reviewer: community.moderators[0].account.did,
+      createdAt: now(),
+    })
+    await expect
+      .poll(
+        async () => {
+          await page.goto(`${runnerWeb.config.publicUrl}/`)
+          return page
+            .locator('nav .badge')
+            .waitFor({ timeout: 2000 })
+            .then(() => page.locator('nav .badge').innerText(), () => '')
+        },
+        { timeout: 20_000, interval: 500 },
+      )
+      .toBe('1')
+    await page.click('nav >> text=Notifications')
+    await page.getByText('asked for changes to your run').waitFor()
+    await page.getByText('Please show the timer at the end').waitFor()
+    await page.goto(`${runnerWeb.config.publicUrl}/`)
+    await page.locator('h1').waitFor()
+    await page.waitForTimeout(1000)
+    expect(await page.locator('nav .badge').count()).toBe(0)
+    await page.close()
+  }, 120_000)
 })

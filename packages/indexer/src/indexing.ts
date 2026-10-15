@@ -672,7 +672,7 @@ export class Indexer {
       return await fn()
     } finally {
       this.deferredBoards = null
-      for (const uri of pending) await rebuildCategoryBoards(this.db, uri)
+      for (const uri of pending) await rebuildCategoryBoards(this.db, uri, { quiet: true })
     }
   }
 

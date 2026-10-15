@@ -37,6 +37,9 @@ export async function startHarness(): Promise<Harness> {
       pdsUrl: env.pdsUrl,
       executorIntervalMs: 0,
       devMode: true,
+      runnerAppUrl: 'http://127.0.0.1:2585',
+      feedServiceDid: 'did:web:localhost%3A2584',
+      labelerSigningKey: randomBytes(32).toString('hex'),
     },
     pino({ level: process.env.LOG_LEVEL ?? 'silent' }),
   )

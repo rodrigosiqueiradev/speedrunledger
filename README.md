@@ -15,12 +15,12 @@ document. It is being built in the doc's order; see [Status](#status).
 | `packages/lexicon` | The 16 `app.speedrunledger-prototype.*` record lexicons, the AppView queries and the community service procedures (`lexicons/`) and TypeScript schemas generated from them with `@atproto/lex` (`pnpm --filter @speedrunledger/lexicon codegen`). |
 | `packages/db` | Postgres schema and migrations (Kysely), and the governance rules (proposal tallies, freezes) that the indexer, AppView and community service share. |
 | `packages/indexer` | Follows the repo event stream, validates records, and writes them to Postgres; backfills whole repos on first start; keeps leaderboards up to date. |
-| `packages/appview` | Read-only XRPC queries over the index: `listCommunities`, `getCommunity`, `getLeaderboard`, `getRun`, `getRunner`, `listReviewQueue`, `listMemberships`, `listProposals`, `getProposal`, `listModerators`, `listBans`, `listCommunityRequests`. |
-| `packages/community-service` | The only service holding community accounts' sessions. Writes verdicts, bans and game edits into a community's repo for moderators who prove their DID with a service-auth JWT; carries out passed proposals; serves the sysadmins' admin endpoints. |
+| `packages/appview` | Read-only XRPC queries over the index: `listCommunities`, `getCommunity`, `getLeaderboard`, `getRun`, `getRunner`, `listReviewQueue`, `listMemberships`, `listProposals`, `getProposal`, `listModerators`, `listBans`, `listCommunityRequests`, `listWorldRecords`, `listNotifications`; and a Bluesky feed generator with a world-record feed per game. |
+| `packages/community-service` | The only service holding community accounts' sessions. Writes verdicts, bans and game edits into a community's repo for moderators who prove their DID with a service-auth JWT; carries out passed proposals; announces world records on Bluesky; runs a labeler for suspected-cheating flags; serves the sysadmins' admin endpoints. |
 | `packages/web-auth` | Server code shared by the web apps: atproto OAuth sign-in (sessions stored in Postgres), the AppView proxy and client serving. |
 | `packages/web-ui` | Browser code shared by the web apps: router, time formatting, API helpers, styles. |
-| `packages/runner-web` | The Runner app: browse boards, sign in, submit, edit and delete runs in your own repo, and ask for a new community. React + Vite with a small Express backend. |
-| `packages/moderator-web` | The Moderator app: your communities and invitations, the review queue and verdicts (verify, retime, request changes, reject), and community management: proposals and votes, the moderator roster, bans, games, categories and rules, and repo export. |
+| `packages/runner-web` | The Runner app: browse boards, sign in, submit, edit and delete runs in your own repo, share runs to Bluesky, see notifications and world record history, and ask for a new community. React + Vite with a small Express backend. |
+| `packages/moderator-web` | The Moderator app: your communities and invitations, the review queue and verdicts (verify, retime, request changes, reject), flags for suspected cheating, proposals waiting for your vote, and community management: proposals and votes, the moderator roster, bans, games, categories and rules, and repo export. |
 | `packages/admin-cli` | `ledger-admin`, the sysadmins' command line, and the demo seed. |
 | `packages/testkit` | Helpers for integration tests against the local stack: accounts, records, a hand-built Super Mario 64 community. |
 | `infra/` | Podman images for the local PDS and PLC directory, and `dev.yaml` for `podman kube play`. |
@@ -66,7 +66,9 @@ founding moderators `peach.test`, `luigi.test` and `toad.test`, who then vote
 in the 16 Star and 70 Star categories and their rules; five runners
 (`bobomb.test`, `koopa.test`, `goomba.test`, `boo.test`, `lakitu.test`) with
 verified, retimed, pending and sent-back runs; a sysadmin `rosalina.test`; and a
-pending request for a Super Mario Sunshine community. Every password is
+pending request for a Super Mario Sunshine community. One of `boo.test`'s
+runs is flagged as suspected cheating, and the world records are announced
+from `sm64.test` as Bluesky posts. Every password is
 `demo-password`. Seeding twice does nothing; start over with
 `scripts/dev-down.sh --volumes`.
 
@@ -180,7 +182,43 @@ twice rewrites the same record.
 | --- | --- |
 | `PDS_URL` | Where new community and platform accounts are created. |
 | `PDS_ADMIN_PASSWORD` | Optional: lets the service mint invite codes on a PDS that requires them. |
-| `EXECUTOR_INTERVAL_MS` | How often passed proposals are carried out. |
+| `EXECUTOR_INTERVAL_MS` | How often passed proposals are carried out and new world records announced. |
+| `RUNNER_PUBLIC_URL` | The Runner app's URL, for links in world-record posts; default `http://127.0.0.1:2585`. |
+| `FEED_SERVICE_DID` | The feed generator named in feed declarations; default `did:web:localhost%3A2584`. |
+| `LABELER_SIGNING_KEY` | Hex secp256k1 key that signs labels; flagging is off without it. |
+
+## Bluesky reach
+
+Everything below works on the local PDS; nothing touches Bluesky's network
+in development. Pointed at the real network, the same records show up in
+Bluesky clients.
+
+- **World records.** When a verified run takes first place on a board and
+  beats the old time, the indexer records it (`world_record`; records found
+  while backfilling are kept quiet). The Runner app shows each board's world
+  record history (`listWorldRecords`).
+- **Announcements.** The community service posts each new record from the
+  community's own account as an `app.bsky.feed.post`, mentioning the new
+  holder and the runner they beat, which notifies both on Bluesky, and
+  linking to the run in the Runner app (`RUNNER_PUBLIC_URL`).
+- **Feeds.** For every game it also writes an `app.bsky.feed.generator`
+  declaration (same record key as the game) pointing at the AppView
+  (`FEED_SERVICE_DID`, default `did:web:localhost%3A2584`), which serves
+  `app.bsky.feed.getFeedSkeleton`, `describeFeedGenerator` and its did:web
+  document: a feed of the game's world-record posts.
+- **Share to Bluesky.** Runners can post a run from their own account, when
+  submitting or later from the run page.
+- **Notifications.** `listNotifications` collects verdicts on your runs,
+  world records you set or lost, flags on your runs, invitations, and
+  proposals waiting for your vote. The Runner app shows them with an unread
+  count; the Moderator app lists the proposals waiting for you.
+- **Suspected-cheating labels.** Any moderator can flag a run
+  (`moderation.flagRun`); the community service signs a `suspected-cheating`
+  atproto label with `LABELER_SIGNING_KEY` (secp256k1, hex) and serves it as
+  a labeler: `com.atproto.label.queryLabels`, the `subscribeLabels` stream,
+  and `#atproto_label`/`#atproto_labeler` entries in its DID document. A
+  flag is a warning, not a verdict; boards don't change. Without the key,
+  flagging is off.
 
 Admin endpoints (`Authorization: Bearer $COMMUNITY_ADMIN_TOKEN`) back
 `ledger-admin`; every sysadmin action names the acting sysadmin, who must be
@@ -221,7 +259,11 @@ Outside the dev stack it needs `COMMUNITY_ADMIN_TOKEN` and takes
    categories, rules and lifting bans, single-moderator bans, game edits, and
    repo export. Browser tests cover an invite voted in and accepted, a ban and
    a game edit, and a community request.
-5. Bluesky reach (next).
+5. **Bluesky reach: done.** World records detected as boards change and
+   announced from the community's account, a world-record feed per game,
+   Share to Bluesky, notifications, and suspected-cheating labels from a
+   labeler.
+6. Hardening (next).
 
 ## License
 
