@@ -17,7 +17,7 @@ export interface DevEnv {
   plcUrl: string
 }
 
-/** Reads the stack's URLs from the environment, falling back to the file dev-up.sh writes. */
+/** Reads the stack's URLs from the environment, falling back to the file dev-up.mjs writes. */
 export function loadDevEnv(): DevEnv {
   const file = join(
     process.env.LEDGER_DEV_DIR ?? join(process.env.XDG_DATA_HOME ?? join(homedir(), '.local/share'), 'speedrunledger'),
