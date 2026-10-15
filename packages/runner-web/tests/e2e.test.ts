@@ -91,7 +91,7 @@ describe('runner app', () => {
 
     await page.fill('input[name=realTime]', '14:58.200')
     await page.fill('input[name=video]', 'https://www.youtube.com/watch?v=dQw4w9WgXcQ')
-    await page.selectOption('select[name=var-platform]', 'N64')
+    await page.selectOption('select[name=platform]', 'N64')
     // First submission: the "runs are public" notice must be acknowledged.
     await page.check('input[name=acknowledge]')
     await page.click('button:has-text("Submit run")')

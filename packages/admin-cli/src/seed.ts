@@ -162,7 +162,7 @@ export async function seedDemo(log: Log = (line) => console.log(line)): Promise<
       sort: 'asc',
       primaryTiming: 'realTime',
       timingMethods: ['realTime'],
-      variables: [{ id: 'platform', name: 'Platform', values: ['N64', 'VC', 'EMU'], subcategory: false }],
+      variables: [],
       requiresVideo: true,
       requiredApprovals: 1,
       createdAt: new Date().toISOString(),
@@ -199,14 +199,14 @@ export async function seedDemo(log: Log = (line) => console.log(line)): Promise<
 
   log('runners submit runs')
   const t = (min: number, sec: number, ms = 0) => (min * 60 + sec) * 1000 + ms
-  const runs: { runner: Account; category: Ref; ms: number; platform: string; verdict?: 'verified' | 'changesRequested'; by?: Account; retime?: number; reason?: string }[] = [
+  const runs: { runner: Account; category: Ref; ms: number; platform: string; emulated?: boolean; verdict?: 'verified' | 'changesRequested'; by?: Account; retime?: number; reason?: string }[] = [
     { runner: runners[0], category: sixteenRef, ms: t(14, 58, 400), platform: 'N64', verdict: 'verified', by: peach },
-    { runner: runners[1], category: sixteenRef, ms: t(15, 3, 120), platform: 'VC', verdict: 'verified', by: luigi, retime: t(15, 2, 980) },
+    { runner: runners[1], category: sixteenRef, ms: t(15, 3, 120), platform: 'Wii VC', verdict: 'verified', by: luigi, retime: t(15, 2, 980) },
     { runner: runners[2], category: sixteenRef, ms: t(15, 21, 700), platform: 'N64', verdict: 'verified', by: toad },
-    { runner: runners[3], category: sixteenRef, ms: t(15, 40, 0), platform: 'EMU' },
+    { runner: runners[3], category: sixteenRef, ms: t(15, 40, 0), platform: 'N64', emulated: true },
     { runner: runners[4], category: sixteenRef, ms: t(16, 5, 330), platform: 'N64', verdict: 'changesRequested', by: peach, reason: 'The end of the video is cut off before the star grab.' },
     { runner: runners[0], category: seventyRef, ms: t(47, 12, 600), platform: 'N64', verdict: 'verified', by: luigi },
-    { runner: runners[2], category: seventyRef, ms: t(48, 30, 0), platform: 'VC', verdict: 'verified', by: toad },
+    { runner: runners[2], category: seventyRef, ms: t(48, 30, 0), platform: 'Wii VC', verdict: 'verified', by: toad },
     { runner: runners[3], category: seventyRef, ms: t(49, 2, 250), platform: 'N64' },
   ]
   const flagged: Ref[] = []
@@ -215,7 +215,9 @@ export async function seedDemo(log: Log = (line) => console.log(line)): Promise<
       category: run.category,
       times: { realTimeMs: run.ms },
       videos: [{ url: `https://example.com/videos/${run.runner.handle.split('.')[0]}-${run.ms}` }],
-      variables: [{ variable: 'platform', value: run.platform }],
+      variables: [],
+      platform: run.platform,
+      ...(run.emulated ? { emulated: true } : {}),
       performedAt: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(),
     })
     if (run.runner === runners[3] && run.category === seventyRef) flagged.push(ref)
