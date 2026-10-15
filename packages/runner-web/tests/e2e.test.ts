@@ -1,0 +1,174 @@
+import { createServer } from 'node:net'
+import { AppViewServer } from '@speedrunledger/appview'
+import { IndexerService, readConfig as readIndexerConfig } from '@speedrunledger/indexer'
+import { ids, ledger } from '@speedrunledger/lexicon'
+import {
+  assertStackUp,
+  createAccount,
+  createTestDatabase,
+  type DevEnv,
+  loadDevEnv,
+  now,
+  putRecord,
+  setupCommunity,
+  type TestCommunity,
+} from '@speedrunledger/testkit'
+import { type Browser, chromium, type Page } from 'playwright-core'
+import { pino } from 'pino'
+import { afterAll, beforeAll, describe, expect, it } from 'vitest'
+import { RunnerWeb } from '../server/index.js'
+
+// A runner signs in through the local PDS's OAuth pages, submits a run from
+// the browser, a moderator verifies it, and it shows up ranked on the board.
+
+const chromiumPath = process.env.CHROMIUM_PATH ?? '/opt/pw-browsers/chromium'
+
+let env: DevEnv
+let indexer: IndexerService
+let appview: AppViewServer
+let runnerWeb: RunnerWeb
+let browser: Browser
+let dropDb: () => Promise<void>
+let community: TestCommunity
+
+const freePort = () =>
+  new Promise<number>((resolve, reject) => {
+    const srv = createServer().listen(0, '127.0.0.1', () => {
+      const { port } = srv.address() as { port: number }
+      srv.close(() => resolve(port))
+    })
+    srv.on('error', reject)
+  })
+
+beforeAll(async () => {
+  env = loadDevEnv()
+  await assertStackUp(env)
+  const database = await createTestDatabase(env)
+  dropDb = database.drop
+  indexer = IndexerService.create(
+    readIndexerConfig({ DATABASE_URL: database.url, PDS_URL: env.pdsUrl, PLC_URL: env.plcUrl, SKIP_BACKFILL: 'true' }),
+    pino({ level: 'silent' }),
+  )
+  await indexer.migrate()
+  await indexer.start()
+  appview = new AppViewServer({ databaseUrl: database.url, port: 0 })
+  await appview.start()
+  const port = await freePort()
+  runnerWeb = new RunnerWeb({
+    port,
+    publicUrl: `http://127.0.0.1:${port}`,
+    databaseUrl: database.url,
+    appviewUrl: appview.url,
+    cookieSecret: 'e2e-cookie-secret-that-is-at-least-32-chars',
+    devPdsUrl: env.pdsUrl,
+    plcUrl: env.plcUrl,
+    viteDev: true,
+  })
+  await runnerWeb.start()
+  browser = await chromium.launch({ executablePath: chromiumPath })
+  await new Promise((resolve) => setTimeout(resolve, 500))
+  community = await setupCommunity(env)
+}, 120_000)
+
+afterAll(async () => {
+  await browser?.close()
+  await runnerWeb?.destroy()
+  await appview?.destroy()
+  await indexer?.destroy()
+  await dropDb?.()
+})
+
+async function signIn(page: Page, handle: string, password: string) {
+  await page.goto(runnerWeb.config.publicUrl)
+  await page.fill('input[aria-label="Your handle"]', handle)
+  await page.click('button:has-text("Sign in")')
+  // The PDS's own sign-in and consent pages.
+  await page.waitForURL((url) => url.port === new URL(env.pdsUrl).port)
+  await page.fill('input[name=password]', password)
+  await page.click('button[type=submit]')
+  await page.click('button:has-text("Authorize")')
+  await page.waitForURL((url) => url.origin === runnerWeb.config.publicUrl)
+  await page.getByText(handle).first().waitFor()
+}
+
+describe('runner app', () => {
+  it('takes a run from sign-in to a ranked board entry', async () => {
+    const runner = await createAccount(env, 'e2e')
+    const page = await browser.newPage()
+    await signIn(page, runner.handle, runner.password)
+
+    const category = community.categories.sixteenStar
+    const boardUrl = `${runnerWeb.config.publicUrl}/board?category=${encodeURIComponent(category.uri)}`
+    // The category reaches the AppView through the firehose; retry until it is served.
+    await expect
+      .poll(
+        async () => {
+          await page.goto(boardUrl)
+          await page.locator('h1, .error').first().waitFor()
+          return page.getByText('Submit a run').count()
+        },
+        { timeout: 20_000, interval: 500 },
+      )
+      .toBeGreaterThan(0)
+    await page.click('text=Submit a run')
+
+    await page.fill('input[name=realTime]', '14:58.200')
+    await page.fill('input[name=video]', 'https://www.youtube.com/watch?v=dQw4w9WgXcQ')
+    await page.selectOption('select[name=var-platform]', 'N64')
+    // First submission: the "runs are public" notice must be acknowledged.
+    await page.check('input[name=acknowledge]')
+    await page.click('button:has-text("Submit run")')
+    await page.waitForURL(/\/run\?/)
+    const runUri = new URL(page.url()).searchParams.get('uri')!
+    expect(runUri).toMatch(new RegExp(`^at://${runner.did}/${ids.run}/`))
+    await page.getByText('Waiting for review').waitFor({ timeout: 20_000 })
+
+    // A moderator's verdict, written by the community account (the Moderator app does this in stage 3).
+    const run = await fetch(new URL(`/xrpc/${ledger.getRun.$nsid}?uri=${encodeURIComponent(runUri)}`, appview.url)).then(
+      (r) => r.json() as Promise<{ run: { uri: string; cid: string } }>,
+    )
+    await putRecord(community.account, ids.verification, {
+      subject: { uri: run.run.uri, cid: run.run.cid },
+      status: 'verified',
+      reviewer: community.moderators[0].account.did,
+      createdAt: now(),
+    })
+
+    await expect
+      .poll(
+        async () => {
+          await page.goto(boardUrl)
+          await page.locator('table.board, p:has-text("No verified runs yet.")').first().waitFor()
+          return page.locator('table.board tbody tr').allInnerTexts()
+        },
+        { timeout: 20_000, interval: 500 },
+      )
+      .toEqual([expect.stringMatching(new RegExp(`^1\\s+${runner.handle.replace(/\./g, '\\.')}\\s+14:58\\.200`))])
+
+    await page.click('table.board tbody a')
+    await page.locator('p:has(.status.verified)').getByText('Rank 1').waitFor()
+
+    // Editing a verified run sends it back to review and takes it off the board.
+    await page.click('text=Edit run')
+    await page.getByText('sends this run back to review').waitFor()
+    expect(await page.inputValue('input[name=realTime]')).toBe('14:58.200')
+    await page.fill('input[name=comment], textarea[name=comment]', 'Retimed from the start of the video')
+    await page.click('button:has-text("Save changes")')
+    await page.waitForURL(/\/run\?/)
+    expect(new URL(page.url()).searchParams.get('uri')).toBe(runUri)
+    await expect
+      .poll(
+        async () => {
+          await page.reload()
+          await page.locator('h1, .error').first().waitFor()
+          return page.locator('p .status').first().innerText()
+        },
+        { timeout: 20_000, interval: 500 },
+      )
+      .toBe('Waiting for review')
+    await page.getByText('Retimed from the start of the video').waitFor()
+    await page.goto(boardUrl)
+    await page.getByText('No verified runs yet.').waitFor()
+    await page.close()
+  }, 120_000)
+})

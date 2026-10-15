@@ -237,7 +237,23 @@ export interface BoardEntryTable {
   indexed_at: Timestamp
 }
 
+/** OAuth authorization requests in flight (web apps). */
+export interface OAuthStateTable {
+  key: string
+  value: Json<unknown>
+  created_at: Timestamp
+}
+
+/** OAuth sessions of signed-in users, keyed by DID (web apps). */
+export interface OAuthSessionTable {
+  key: string
+  value: Json<unknown>
+  updated_at: Timestamp
+}
+
 export interface DatabaseSchema {
+  oauth_state: OAuthStateTable
+  oauth_session: OAuthSessionTable
   board_entry: BoardEntryTable
   subscription_state: SubscriptionStateTable
   actor: ActorTable

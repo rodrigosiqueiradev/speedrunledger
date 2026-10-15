@@ -1,0 +1,36 @@
+{
+  "name": "@speedrunledger/runner-web",
+  "version": "0.0.0",
+  "private": true,
+  "license": "MIT",
+  "type": "module",
+  "scripts": {
+    "build": "vite build && tsc -p tsconfig.server.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run",
+    "start": "NODE_ENV=production node dist/server/bin.js",
+    "dev": "tsx --conditions=@speedrunledger/source server/bin.ts"
+  },
+  "dependencies": {
+    "@atproto/lex": "0.3.14",
+    "@speedrunledger/db": "workspace:*",
+    "@speedrunledger/lexicon": "workspace:*",
+    "@speedrunledger/web-auth": "workspace:*",
+    "express": "5.3.0",
+    "kysely": "0.29.6",
+    "react": "19.3.1",
+    "react-dom": "19.3.1"
+  },
+  "devDependencies": {
+    "@speedrunledger/appview": "workspace:*",
+    "@speedrunledger/indexer": "workspace:*",
+    "@speedrunledger/testkit": "workspace:*",
+    "@types/express": "5.0.6",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@vitejs/plugin-react": "6.1.2",
+    "pino": "10.4.0",
+    "playwright-core": "^1.64.1",
+    "vite": "8.3.4"
+  }
+}

@@ -26,6 +26,10 @@ PLC_URL=http://localhost:2582
 ENV
   echo "generated dev secrets in $env_file"
 fi
+# Secrets added after a dev.env was first generated.
+if ! grep -q '^COOKIE_SECRET=' "$env_file"; then
+  echo "COOKIE_SECRET=$(openssl rand -hex 32)" >> "$env_file"
+fi
 # shellcheck disable=SC1090
 source "$env_file"
 
@@ -42,12 +46,13 @@ data:
   pdsJwtSecret: $(b64 "$PDS_JWT_SECRET")
   pdsAdminPassword: $(b64 "$PDS_ADMIN_PASSWORD")
   pdsRotationKeyHex: $(b64 "$PDS_PLC_ROTATION_KEY_K256_PRIVATE_KEY_HEX")
+  cookieSecret: $(b64 "$COOKIE_SECRET")
 YAML
 )
 podman secret rm ledger-dev >/dev/null 2>&1 || true
 printf '%s\n' "$secret_yaml" | podman kube play - >/dev/null
 
-for image in plc pds indexer appview; do
+for image in plc pds indexer appview runner-web; do
   if ! podman image exists "localhost/speedrunledger/$image:dev"; then
     scripts/podman-build.sh "$image"
   fi
@@ -67,4 +72,6 @@ wait_for() {
 wait_for plc http://localhost:2582/_health
 wait_for pds http://localhost:2583/xrpc/_health
 wait_for appview "http://localhost:2584/xrpc/app.speedrunledger-prototype.listCommunities"
+wait_for runner-web http://127.0.0.1:2585/
+echo "Runner app: http://127.0.0.1:2585 (open it at 127.0.0.1, not localhost, for OAuth)"
 echo "env for tools and tests: source $env_file"

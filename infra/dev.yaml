@@ -140,3 +140,27 @@ spec:
             secretKeyRef:
               name: ledger-dev
               key: databaseUrl
+    - name: runner-web
+      image: localhost/speedrunledger/runner-web:dev
+      command: ["node", "--enable-source-maps", "dist/server/bin.js"]
+      env:
+        - name: RUNNER_PORT
+          value: "2585"
+        - name: RUNNER_PUBLIC_URL
+          value: http://127.0.0.1:2585
+        - name: APPVIEW_URL
+          value: http://localhost:2584
+        - name: PDS_URL
+          value: http://localhost:2583
+        - name: PLC_URL
+          value: http://localhost:2582
+        - name: DATABASE_URL
+          valueFrom:
+            secretKeyRef:
+              name: ledger-dev
+              key: databaseUrl
+        - name: COOKIE_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: ledger-dev
+              key: cookieSecret

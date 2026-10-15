@@ -14,7 +14,10 @@ document. It is being built in the doc's order; see [Status](#status).
 | --- | --- |
 | `packages/lexicon` | The 14 `app.speedrunledger-prototype.*` record lexicons (`lexicons/`) and TypeScript schemas generated from them with `@atproto/lex` (`pnpm --filter @speedrunledger/lexicon codegen`). |
 | `packages/db` | Postgres schema and migrations (Kysely). |
-| `packages/indexer` | Follows the repo event stream, validates records, and writes them to Postgres; backfills whole repos on first start. |
+| `packages/indexer` | Follows the repo event stream, validates records, and writes them to Postgres; backfills whole repos on first start; keeps leaderboards up to date. |
+| `packages/appview` | Read-only XRPC queries over the index: `listCommunities`, `getCommunity`, `getLeaderboard`, `getRun`, `getRunner`. |
+| `packages/web-auth` | atproto OAuth sign-in for the web apps (Express router, sessions stored in Postgres). |
+| `packages/runner-web` | The Runner app: browse boards, sign in, submit, edit and delete runs in your own repo. React + Vite with a small Express backend. |
 | `packages/testkit` | Helpers for integration tests against the local stack: accounts, records, a hand-built Super Mario 64 community. |
 | `infra/` | Podman images for the local PDS and PLC directory, and `dev.yaml` for `podman kube play`. |
 | `scripts/` | `podman-build.sh`, `dev-up.sh`, `dev-down.sh`. |
@@ -31,12 +34,25 @@ pnpm infra:up      # builds images if needed, then starts the pods
 pnpm infra:down    # stop; `scripts/dev-down.sh --volumes` also deletes data
 ```
 
-`infra:up` runs `podman kube play infra/dev.yaml`, which starts two pods on
+`infra:up` runs `podman kube play infra/dev.yaml`, which starts three pods on
 the host network:
 
 - `ledger-pds`: a PDS on `localhost:2583` that accepts `.test` handles, and a
   PLC directory on `localhost:2582`, so DIDs and migrations work offline.
 - `ledger-data`: Postgres on `localhost:5433`, and the indexer.
+- `ledger-web`: the AppView on `localhost:2584` and the Runner app on
+  `http://127.0.0.1:2585`.
+
+Open the Runner app at `127.0.0.1`, not `localhost`: in development it signs
+in as an OAuth loopback client, which atproto only allows on the loopback IP.
+Create an account to sign in with on the local PDS:
+
+```sh
+source ~/.local/share/speedrunledger/dev.env
+curl -s -X POST "$PDS_URL/xrpc/com.atproto.server.createAccount" \
+  -H 'content-type: application/json' \
+  -d '{"handle":"alice.test","email":"alice@example.test","password":"alice-pass"}'
+```
 
 The first run generates random secrets into
 `~/.local/share/speedrunledger/dev.env` and stores them as the `ledger-dev`
@@ -56,7 +72,10 @@ pnpm test
 
 Unit tests need nothing. Integration tests run against the real PDS and PLC
 directory in the local stack, with no mocks; each test file gets its own
-throwaway Postgres database.
+throwaway Postgres database. The Runner app's end-to-end test drives Chromium
+through the PDS's real sign-in and consent pages; it uses `playwright-core`
+and looks for the browser at `CHROMIUM_PATH` (default
+`/opt/pw-browsers/chromium`).
 
 ## Running the indexer outside a container
 
@@ -76,13 +95,35 @@ pnpm --filter @speedrunledger/indexer dev
 | `SKIP_BACKFILL` | `true` to only follow new events. |
 | `DEV_MODE` | Allows plain-http identity lookups; on by default when `PLC_URL` is http. |
 
+## Running the web services outside a container
+
+Stop the container you are replacing first (`podman pod stop ledger-web`), then:
+
+```sh
+source ~/.local/share/speedrunledger/dev.env
+pnpm --filter @speedrunledger/appview dev      # http://localhost:2584
+pnpm --filter @speedrunledger/runner-web dev   # http://127.0.0.1:2585, with Vite hot reload
+```
+
+| Variable | Service | Meaning |
+| --- | --- | --- |
+| `DATABASE_URL` | both | The indexer's Postgres (required). |
+| `APPVIEW_PORT` | AppView | Port, default 2584. |
+| `RUNNER_PORT` | Runner app | Port, default 2585. |
+| `RUNNER_PUBLIC_URL` | Runner app | URL people open; default `http://127.0.0.1:<port>`. With any other host the app serves `/oauth-client-metadata.json` as its client id. |
+| `APPVIEW_URL` | Runner app | Where `/xrpc/*` reads are proxied; default `http://localhost:2584`. |
+| `COOKIE_SECRET` | Runner app | At least 32 characters; signs the session cookie (required). |
+| `PDS_URL`, `PLC_URL` | Runner app | Development: resolve handles through this PDS and allow plain-http OAuth. `DEV_MODE=false` turns this off. |
+
 ## Status
 
 1. **Lexicons and indexer: done.** All 14 record types; the indexer stores
    hand-written records, verifies every commit's signature, backfills, and
    resumes from its cursor.
-2. Runner app and boards: next.
-3. Moderator app: review.
+2. **Runner app and boards: done.** OAuth sign-in, run submission, edits and
+   deletes in the runner's repo, leaderboards computed from verdicts, and the
+   AppView queries. A browser test takes a run from sign-in to a ranked entry.
+3. Moderator app: review (next).
 4. Moderator app: community management, plus the admin CLI.
 
 ## License
