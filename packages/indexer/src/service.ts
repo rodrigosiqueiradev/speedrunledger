@@ -8,6 +8,7 @@ import type { IndexerConfig } from './config.js'
 import { Indexer } from './indexing.js'
 
 const RETRY_DELAYS_MS = [100, 500, 1000, 2000, 5000]
+const BACKFILL_CONCURRENCY = 8
 
 /** Retries an operation until it succeeds; used for database writes so no event is ever skipped. */
 async function withRetry<T>(logger: Logger, what: string, fn: () => Promise<T>): Promise<T> {
@@ -106,11 +107,16 @@ export class IndexerService {
     let repos = 0
     for (const source of this.config.backfillSources) {
       this.logger.info({ source }, 'backfill started')
+      // Repos are independent; sync several at once (each still ordered with its own live events).
+      const inFlight = new Set<Promise<void>>()
       for await (const repo of listRepos(source)) {
         if (repo.active === false) continue
         repos++
-        await this.syncRepo(repo.did)
+        const sync: Promise<void> = this.syncRepo(repo.did).finally(() => inFlight.delete(sync))
+        inFlight.add(sync)
+        if (inFlight.size >= BACKFILL_CONCURRENCY) await Promise.race(inFlight)
       }
+      await Promise.all(inFlight)
       this.logger.info({ source, repos }, 'backfill finished')
     }
     return { repos }
