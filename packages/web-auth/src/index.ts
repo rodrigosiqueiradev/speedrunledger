@@ -60,7 +60,7 @@ export class WebAuth {
         token_endpoint_auth_method: 'none',
         dpop_bound_access_tokens: true,
       },
-      ...createStores(db),
+      ...createStores(db, url.origin),
       handleResolver: config.handleResolverUrl,
       plcDirectoryUrl: config.plcUrl,
       allowHttp: config.allowHttp,
