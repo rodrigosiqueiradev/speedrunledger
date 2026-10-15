@@ -21,6 +21,8 @@ document. It is being built in the doc's order; see [Status](#status).
 | `packages/web-ui` | Browser code shared by the web apps: router, time formatting, API helpers, styles. |
 | `packages/runner-web` | The Runner app: browse boards, sign in, submit, edit and delete runs in your own repo, share runs to Bluesky, see notifications and world record history, and ask for a new community. React + Vite with a small Express backend. |
 | `packages/moderator-web` | The Moderator app: your communities and invitations, the review queue and verdicts (verify, retime, request changes, reject), flags for suspected cheating, proposals waiting for your vote, and community management: proposals and votes, the moderator roster, bans, games, categories and rules, and repo export. |
+| `packages/admin-web` | The Admin app: for sysadmins, first-run platform setup, community requests (create or deny), communities (add games, appoint a moderator when none is active, freeze and unfreeze, export), sysadmins, and the community service's jobs. Only accounts listed as sysadmins get in. |
+| `packages/admin-client` | The admin client: typed calls to the community service's admin endpoints and the AppView, shared by the Admin app and `ledger-admin`. |
 | `packages/admin-cli` | `ledger-admin`, the sysadmins' command line, and the demo seed. |
 | `packages/testkit` | Helpers for integration tests against the local stack: accounts, records, a hand-built Super Mario 64 community. |
 | `infra/` | Podman images for the local PDS and PLC directory; `deps.yaml` (PDS, PLC, Postgres) and `dev.yaml` (our services) for `podman kube play`. |
@@ -53,7 +55,7 @@ pnpm infra:up
 
 The stack uses host networking inside the Podman machine; WSL forwards its
 `localhost` ports to Windows, so the apps open at the same
-`http://127.0.0.1:2585` and `:2587`. Secrets go to
+`http://127.0.0.1:2585`, `:2587` and `:2589`. Secrets go to
 `%USERPROFILE%\.local\share\speedrunledger\dev.env`.
 
 If you work inside WSL instead, keep the clone in the Linux filesystem
@@ -72,7 +74,7 @@ pnpm infra:down    # stop; `pnpm infra:down --volumes` also deletes data
 ```
 
 `infra:up` runs `podman kube play` on `infra/deps.yaml` and then
-`infra/dev.yaml`, which start five pods on the host network:
+`infra/dev.yaml`, which start six pods on the host network:
 
 - `ledger-pds`: a PDS on `localhost:2583` that accepts `.test` handles, and a
   PLC directory on `localhost:2582`, so DIDs and migrations work offline.
@@ -80,6 +82,8 @@ pnpm infra:down    # stop; `pnpm infra:down --volumes` also deletes data
 - `ledger-indexer`: the indexer.
 - `ledger-web`: the AppView on `localhost:2584`, the Runner app on
   `http://127.0.0.1:2585` and the Moderator app on `http://127.0.0.1:2587`.
+- `ledger-admin`: the Admin app on `http://127.0.0.1:2589`, in its own pod
+  because it holds the community service's admin token.
 - `ledger-community`: the community service on `localhost:2586`, alone in its
   pod because it holds the community accounts' sessions.
 
@@ -103,7 +107,8 @@ verified, retimed, pending and sent-back runs; a sysadmin `rosalina.test`; and a
 pending request for a Super Mario Sunshine community. One of `boo.test`'s
 runs is flagged as suspected cheating, and the world records are announced
 from `sm64.test` as Bluesky posts. Every password is
-`demo-password`. Seeding twice does nothing; start over with
+`demo-password`. Sign in to the Admin app as `rosalina.test` to answer the Sunshine
+request. Seeding twice does nothing; start over with
 `pnpm infra:down --volumes`.
 
 To make your own account on the local PDS instead:
@@ -183,6 +188,12 @@ The Moderator app (`pnpm --filter @speedrunledger/moderator-web dev`) takes
 the same variables with `MODERATOR_PORT` (2587) and `MODERATOR_PUBLIC_URL`,
 plus `COMMUNITY_SERVICE_URL` (default `http://localhost:2586`) and
 `COMMUNITY_SERVICE_DID` (default `did:web:localhost%3A2586`).
+
+The Admin app (`pnpm --filter @speedrunledger/admin-web dev`) takes
+`ADMIN_PORT` (2589), `ADMIN_PUBLIC_URL`, `DATABASE_URL`, `COOKIE_SECRET`,
+`APPVIEW_URL`, `PDS_URL`, `PLC_URL`, `COMMUNITY_SERVICE_URL` and
+`COMMUNITY_ADMIN_TOKEN` (required), which it sends to the community service's
+admin endpoints.
 
 ## The community service
 
@@ -276,26 +287,58 @@ Bluesky clients.
   Video links tab (`listVideoProblems`), and as a notification to the runner.
   The run keeps its place; what to do is the moderators' call.
 
-Admin endpoints (`Authorization: Bearer $COMMUNITY_ADMIN_TOKEN`) back
-`ledger-admin`; every sysadmin action names the acting sysadmin, who must be
+Admin endpoints (`Authorization: Bearer $COMMUNITY_ADMIN_TOKEN`) back the
+Admin app and `ledger-admin`; every sysadmin action names the acting sysadmin, who must be
 listed in the platform account's repo.
 
+## The Admin app
+
+Open `http://127.0.0.1:2589` and sign in with your own account. It asks for
+nothing beyond who you are (OAuth scope `atproto`); every write goes through
+the community service's admin endpoints, naming you as the acting sysadmin,
+and the service checks again that you are listed in the platform account's
+repo. Accounts that aren't listed see "Not a sysadmin" and get 403 from the
+app's API.
+
+On a fresh stack there is no platform account yet, so the app opens on **Set
+up the platform**: pick the platform account's handle (`ledger.test`
+locally) and enter the setup code, which is `COMMUNITY_ADMIN_TOKEN` (in
+`dev.env`). You become the first sysadmin. The setup code is what stops the
+first person to sign in from claiming the platform.
+
+From there:
+
+- **Requests**: community requests from the Runner app, with their game,
+  founders and note. Create the community (handle, name, optional description
+  and the founders' recovery key) or deny with a reason the requester sees.
+  Answered requests are one checkbox away.
+- **Communities**: every community the service writes for. Each one's page
+  adds games, appoints a moderator when none is active (with a public
+  reason), freezes and unfreezes (with a public reason), and exports the repo
+  as a CAR file. Communities can also be created without a request, and an
+  existing account can be registered.
+- **Sysadmins**: add by handle, remove; the last sysadmin can't be removed.
+- **Jobs**: carry out passed proposals, announce world records and check
+  video links now instead of waiting for the timers.
+
+Sysadmins never touch verdicts or boards, in the app or anywhere else.
+
 ## ledger-admin
+
+The command line does the same through the same admin client
+(`packages/admin-client`), for scripts and the demo seed.
 
 ```sh
 pnpm ledger-admin --help
 pnpm ledger-admin --as rosalina.test requests list
 pnpm ledger-admin --as rosalina.test community create --request at://… --handle sm64.test --name "Super Mario 64"
 pnpm ledger-admin --as rosalina.test community freeze sm64.test --reason "Leaderboard vandalism"
+pnpm ledger-admin --as rosalina.test sysadmin remove peach.test
 pnpm ledger-admin community export sm64.test --out sm64.car
 pnpm ledger-admin videos check
 ```
 
 `scripts/ledger-admin.mjs` reads the admin token and URLs from `dev.env`.
-Sysadmins set up the platform account (`platform init`), add sysadmins, answer
-community requests (create or deny with a reason), add games, appoint a
-moderator only when a community has none active, freeze and unfreeze, and
-export a community's repo as a CAR file. They never touch verdicts or boards.
 Outside the dev stack it needs `COMMUNITY_ADMIN_TOKEN` and takes
 `COMMUNITY_SERVICE_URL`, `APPVIEW_URL`, `PDS_URL`, `PLC_URL` and
 `LEDGER_SYSADMIN`.
@@ -323,6 +366,11 @@ Outside the dev stack it needs `COMMUNITY_ADMIN_TOKEN` and takes
 6. **Hardening: done.** Several approvals per run where a category asks for
    them, and weekly checks for dead video links. Co-signed reviews and the
    import tool are out of scope for the prototype.
+7. **Admin app: done.** Everything `ledger-admin` does, in the browser for
+   sysadmins, sharing the CLI's admin client; first-run platform setup with a
+   setup code; removing sysadmins. A browser test covers setup, a community
+   created from a request, a game, an appointment, a freeze, a denial,
+   sysadmins added and removed, a job, and a non-sysadmin turned away.
 
 ## License
 

@@ -24,7 +24,8 @@
     "dev": "tsx --conditions=@speedrunledger/source src/bin.ts"
   },
   "dependencies": {
-    "@atproto/api": "0.27.0"
+    "@atproto/api": "0.27.0",
+    "@speedrunledger/admin-client": "workspace:*"
   },
   "devDependencies": {
     "@speedrunledger/appview": "workspace:*",

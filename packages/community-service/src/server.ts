@@ -140,6 +140,11 @@ export class CommunityServiceServer {
         need(b, 'sysadmin', 'subject')
         return admin.addSysadmin(b.sysadmin, b.subject)
       },
+      'POST /admin/sysadmins/remove': async (b) => {
+        need(b, 'sysadmin', 'subject')
+        await admin.removeSysadmin(b.sysadmin, b.subject)
+        return {}
+      },
       'POST /admin/requests/deny': async (b) => {
         need(b, 'sysadmin', 'request', 'reason')
         return admin.denyRequest(b.sysadmin, b.request, b.reason)

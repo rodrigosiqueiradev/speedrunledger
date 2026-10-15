@@ -1,16 +1,10 @@
 import { writeFile } from 'node:fs/promises'
 import { parseArgs } from 'node:util'
+import { AdminClient, type AdminClientEnv } from '@speedrunledger/admin-client'
 
-export interface CliEnv {
-  /** The community service; admin endpoints live under /admin. */
-  communityServiceUrl: string
-  adminToken: string
+export interface CliEnv extends AdminClientEnv {
   /** The acting sysadmin's DID or handle. */
   sysadmin?: string
-  appviewUrl: string
-  /** Resolves .test handles locally, and is where new accounts are created. */
-  pdsUrl?: string
-  plcUrl: string
 }
 
 export function readEnv(env: NodeJS.ProcessEnv = process.env): CliEnv {
@@ -33,6 +27,7 @@ export const USAGE = `ledger-admin: run SpeedrunLedger as a sysadmin.
   platform init --handle <handle> --sysadmin <you>   create the platform account; you become the first sysadmin
   sysadmin list
   sysadmin add <did|handle>
+  sysadmin remove <did|handle>                        the last sysadmin cannot be removed
 
   requests list [--all]                               community requests (pending unless --all)
   requests deny <request-uri> --reason <text>
@@ -61,42 +56,17 @@ Environment: COMMUNITY_ADMIN_TOKEN (required), COMMUNITY_SERVICE_URL, APPVIEW_UR
 type Out = (line: string) => void
 
 export class LedgerAdmin {
+  readonly client: AdminClient
+
   constructor(
     readonly env: CliEnv,
     readonly out: Out = (line) => console.log(line),
-  ) {}
-
-  private async admin<T = any>(method: string, path: string, body?: unknown): Promise<T> {
-    const res = await fetch(new URL(path, this.env.communityServiceUrl), {
-      method,
-      headers: { authorization: `Bearer ${this.env.adminToken}`, 'content-type': 'application/json' },
-      body: body === undefined ? undefined : JSON.stringify(body),
-    })
-    const data = (await res.json().catch(() => ({}))) as any
-    if (!res.ok) throw new UsageError(`${data.error ?? res.status}: ${data.message ?? res.statusText}`)
-    return data as T
+  ) {
+    this.client = new AdminClient(env)
   }
 
-  private async appview<T = any>(nsid: string, params: Record<string, string>): Promise<T> {
-    const url = new URL(`/xrpc/app.speedrunledger-prototype.${nsid}`, this.env.appviewUrl)
-    for (const [k, v] of Object.entries(params)) url.searchParams.set(k, v)
-    const res = await fetch(url)
-    if (!res.ok) throw new UsageError(`AppView ${nsid} returned ${res.status}`)
-    return (await res.json()) as T
-  }
-
-  /** A DID for a DID or handle: the local PDS knows .test handles; anything else uses the handle's well-known file. */
-  async resolve(actor: string): Promise<string> {
-    if (actor.startsWith('did:')) return actor
-    const handle = actor.replace(/^@/, '')
-    if (this.env.pdsUrl) {
-      const res = await fetch(new URL(`/xrpc/com.atproto.identity.resolveHandle?handle=${encodeURIComponent(handle)}`, this.env.pdsUrl))
-      if (res.ok) return ((await res.json()) as { did: string }).did
-    }
-    const res = await fetch(`https://${handle}/.well-known/atproto-did`).catch(() => undefined)
-    const did = res?.ok ? (await res.text()).trim() : ''
-    if (!did.startsWith('did:')) throw new UsageError(`could not resolve handle ${handle}`)
-    return did
+  resolve(actor: string): Promise<string> {
+    return this.client.resolve(actor)
   }
 
   private async sysadmin(as?: string): Promise<string> {
@@ -142,56 +112,53 @@ export class LedgerAdmin {
         ? { title: values.game, releaseYear: values.year ? Number(values.year) : undefined, platforms: values.platform }
         : undefined
 
+    const { client } = this
     switch (`${group} ${command ?? ''}`.trim()) {
       case 'platform init': {
         const sysadmin = await this.resolve(need(values.sysadmin ?? values.as ?? this.env.sysadmin, '--sysadmin'))
-        const out = await this.admin('POST', '/admin/platform', { handle: need(values.handle, '--handle'), sysadmin })
+        const out = await client.initPlatform({ handle: need(values.handle, '--handle'), sysadmin })
         return print(`platform account ${out.handle} (${out.did}); sysadmin ${sysadmin}`, out)
       }
       case 'sysadmin list': {
-        const { sysadmins } = await this.admin<{ sysadmins: string[] }>('GET', '/admin/sysadmins')
+        const sysadmins = await client.listSysadmins()
         return print(sysadmins.join('\n') || 'no sysadmins (run platform init)', sysadmins)
       }
       case 'sysadmin add': {
         const subject = await this.resolve(need(args[0], 'a DID or handle'))
-        const out = await this.admin('POST', '/admin/sysadmins', { sysadmin: await this.sysadmin(values.as), subject })
+        const out = await client.addSysadmin(await this.sysadmin(values.as), subject)
         return print(`${subject} is now a sysadmin`, out)
       }
+      case 'sysadmin remove': {
+        const subject = await this.resolve(need(args[0], 'a DID or handle'))
+        await client.removeSysadmin(await this.sysadmin(values.as), subject)
+        return print(`${subject} is no longer a sysadmin`, { subject })
+      }
       case 'requests list': {
-        const { requests } = await this.appview<{ requests: any[] }>('listCommunityRequests', { status: values.all ? 'all' : 'pending' })
+        const requests = await client.listRequests(values.all ? 'all' : 'pending')
         const lines = requests.map(
           (r) =>
             `${r.uri}\n  ${r.game.title}${r.game.releaseYear ? ` (${r.game.releaseYear})` : ''}, requested by @${r.requester.handle ?? r.requester.did}` +
-            `\n  founders: ${r.founders.map((f: any) => `@${f.handle ?? f.did}`).join(', ')}` +
+            `\n  founders: ${r.founders.map((f) => `@${f.handle ?? f.did}`).join(', ')}` +
             (r.note ? `\n  note: ${r.note}` : '') +
             (values.all ? `\n  status: ${r.status}${r.denialReason ? ` (${r.denialReason})` : ''}` : ''),
         )
         return print(lines.join('\n') || 'no pending requests', requests)
       }
       case 'requests deny': {
-        const out = await this.admin('POST', '/admin/requests/deny', {
-          sysadmin: await this.sysadmin(values.as),
-          request: need(args[0], 'the request URI'),
-          reason: need(values.reason, '--reason'),
-        })
+        const out = await client.denyRequest(await this.sysadmin(values.as), need(args[0], 'the request URI'), need(values.reason, '--reason'))
         return print(`denied; the requester sees the reason (${out.uri})`, out)
       }
       case 'community list': {
-        const { communities: managed } = await this.admin<{ communities: { did: string; identifier: string }[] }>('GET', '/admin/communities')
-        const details = await Promise.all(
-          managed.map((m) => this.appview<{ community: any }>('getCommunity', { community: m.did }).then((r) => r.community, () => undefined)),
-        )
-        const byDid = new Map(managed.map((m, i) => [m.did, details[i]]))
-        const lines = managed.map((m) => {
-          const c = byDid.get(m.did)
-          const games = c?.games.map((g: any) => g.game.title).join(', ')
-          return `${m.did}  ${c?.community.name ?? '(not indexed yet)'}${c?.community.frozen ? ' [frozen]' : ''}${games ? `: ${games}` : ''}`
+        const managed = await client.listCommunities()
+        const lines = managed.map(({ did, detail: c }) => {
+          const games = c?.games.map((g) => g.game.title).join(', ')
+          return `${did}  ${c?.community.name ?? '(not indexed yet)'}${c?.community.frozen ? ' [frozen]' : ''}${games ? `: ${games}` : ''}`
         })
-        return print(lines.join('\n') || 'no communities', managed.map((m) => ({ ...m, ...byDid.get(m.did) })))
+        return print(lines.join('\n') || 'no communities', managed.map(({ detail, ...m }) => ({ ...m, ...detail })))
       }
       case 'community create': {
         const founders = await Promise.all((values.founder ?? []).map((f) => this.resolve(f)))
-        const out = await this.admin('POST', '/admin/communities/create', {
+        const out = await client.createCommunity({
           sysadmin: await this.sysadmin(values.as),
           handle: need(values.handle, '--handle'),
           name: need(values.name, '--name'),
@@ -207,46 +174,33 @@ export class LedgerAdmin {
         )
       }
       case 'community register': {
-        const out = await this.admin('POST', '/admin/communities', {
-          identifier: need(values.identifier, '--identifier'),
-          password: need(values.password, '--password'),
-          pdsUrl: need(this.env.pdsUrl, 'PDS_URL'),
-        })
+        need(this.env.pdsUrl, 'PDS_URL')
+        const out = await client.registerCommunity(need(values.identifier, '--identifier'), need(values.password, '--password'))
         return print(`the community service now writes for ${out.handle} (${out.did})`, out)
       }
       case 'community add-game': {
         const community = await this.resolve(need(args[0], 'the community'))
         const g = game()
         if (!g) throw new UsageError('--game is required')
-        const out = await this.admin('POST', `/admin/communities/${encodeURIComponent(community)}/games`, {
-          sysadmin: await this.sysadmin(values.as),
-          ...g,
-        })
+        const out = await client.addGame(await this.sysadmin(values.as), community, g)
         return print(`added ${g.title}: ${out.uri}`, out)
       }
       case 'community appoint': {
         const community = await this.resolve(need(args[0], 'the community'))
         const subject = await this.resolve(need(args[1], 'the moderator to appoint'))
-        const out = await this.admin('POST', `/admin/communities/${encodeURIComponent(community)}/appoint`, {
-          sysadmin: await this.sysadmin(values.as),
-          subject,
-          reason: need(values.reason, '--reason'),
-        })
+        const out = await client.appoint(await this.sysadmin(values.as), community, subject, need(values.reason, '--reason'))
         return print(`appointed ${subject}; they become a moderator once they accept\n  intervention: ${out.intervention}`, out)
       }
       case 'community freeze':
       case 'community unfreeze': {
         const community = await this.resolve(need(args[0], 'the community'))
-        const out = await this.admin('POST', `/admin/communities/${encodeURIComponent(community)}/${command}`, {
-          sysadmin: await this.sysadmin(values.as),
-          reason: need(values.reason, '--reason'),
-        })
+        const out = await client.setFrozen(await this.sysadmin(values.as), community, command === 'freeze', need(values.reason, '--reason'))
         return print(`${command === 'freeze' ? 'froze' : 'unfroze'} ${community}: ${out.uri}`, out)
       }
       case 'community export': {
         const community = await this.resolve(need(args[0], 'the community'))
-        const pds = await this.pdsOf(community)
-        const res = await fetch(new URL(`/xrpc/com.atproto.sync.getRepo?did=${encodeURIComponent(community)}`, pds))
+        const pds = await client.pdsOf(community)
+        const res = await fetch(await client.exportUrl(community))
         if (!res.ok) throw new UsageError(`getRepo returned ${res.status}`)
         const bytes = new Uint8Array(await res.arrayBuffer())
         const file = values.out ?? `${community.replaceAll(':', '_')}.car`
@@ -258,32 +212,19 @@ export class LedgerAdmin {
         })
       }
       case 'proposals execute': {
-        const out = await this.admin('POST', '/admin/proposals/execute', {})
+        const out = await client.executeProposals()
         return print(`carried out ${out.executed} proposal(s)`, out)
       }
       case 'announcements run': {
-        const out = await this.admin('POST', '/admin/announcements/run', {})
+        const out = await client.runAnnouncements()
         return print(`posted ${out.posted} world record(s)`, out)
       }
       case 'videos check': {
-        const out = await this.admin('POST', '/admin/videos/check', {})
+        const out = await client.checkVideos()
         return print(`checked ${out.checked} link(s), ${out.dead} dead`, out)
       }
       default:
         throw new UsageError(`unknown command "${positionals.join(' ')}"\n\n${USAGE}`)
     }
-  }
-
-  /** The PDS hosting a DID, from its DID document. */
-  private async pdsOf(did: string): Promise<string> {
-    const url = did.startsWith('did:web:')
-      ? `https://${decodeURIComponent(did.slice('did:web:'.length))}/.well-known/did.json`
-      : new URL(`/${did}`, this.env.plcUrl).toString()
-    const res = await fetch(url)
-    if (!res.ok) throw new UsageError(`could not resolve ${did}`)
-    const doc = (await res.json()) as { service?: { id: string; serviceEndpoint: string }[] }
-    const pds = doc.service?.find((s) => s.id.endsWith('#atproto_pds'))?.serviceEndpoint
-    if (!pds) throw new UsageError(`${did} names no PDS`)
-    return pds
   }
 }

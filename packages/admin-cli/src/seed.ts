@@ -268,7 +268,7 @@ export async function seedDemo(log: Log = (line) => console.log(line)): Promise<
 
   log('')
   log(`Seeded. Every account's password is "${DEMO_PASSWORD}".`)
-  log(`  sysadmin:   ${DEMO.sysadmin} (use with ledger-admin --as ${DEMO.sysadmin})`)
+  log(`  sysadmin:   ${DEMO.sysadmin} (Admin app, http://127.0.0.1:2589, or ledger-admin --as ${DEMO.sysadmin})`)
   log(`  moderators: ${DEMO.moderators.join(', ')} (Moderator app, http://127.0.0.1:2587)`)
   log(`  runners:    ${DEMO.runners.join(', ')} (Runner app, http://127.0.0.1:2585)`)
   log(`  community:  ${DEMO.community} (${community.did})`)

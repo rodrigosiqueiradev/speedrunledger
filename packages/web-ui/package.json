@@ -4,7 +4,7 @@
   "private": true,
   "license": "MIT",
   "type": "module",
-  "description": "Browser code shared by the Runner and Moderator apps; bundled from source by Vite.",
+  "description": "Browser code shared by the web apps; bundled from source by Vite.",
   "exports": {
     ".": "./src/index.ts",
     "./style.css": "./src/style.css"

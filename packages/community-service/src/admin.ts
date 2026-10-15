@@ -116,6 +116,17 @@ export class AdminService {
     return this.writeSysadmin(platform!.did, subject)
   }
 
+  /** Takes a sysadmin off the list. The last sysadmin stays, so the platform is never left without one. */
+  async removeSysadmin(actingSysadmin: string, subject: string): Promise<void> {
+    const sysadmins = await this.listSysadmins()
+    if (!sysadmins.includes(actingSysadmin)) throw fail(403, 'NotSysadmin', `${actingSysadmin} is not a sysadmin`)
+    if (!sysadmins.includes(subject)) throw fail(404, 'NotFound', `${subject} is not a sysadmin`)
+    if (sysadmins.length === 1) throw fail(409, 'LastSysadmin', 'The platform needs at least one sysadmin; add another one first')
+    const platform = await this.platform()
+    const client = await this.service.requireClient(platform!.did)
+    await client.delete(ledger.platform.sysadmin, { rkey: subject })
+  }
+
   private async writeSysadmin(platform: string, subject: string): Promise<WriteOutput> {
     const client = await this.service.requireClient(platform)
     const record = strip(ledger.platform.sysadmin.$parse({ $type: ledger.platform.sysadmin.$type, subject, createdAt: now() }))
