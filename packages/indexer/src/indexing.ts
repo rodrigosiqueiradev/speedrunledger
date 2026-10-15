@@ -10,7 +10,13 @@ import {
 } from '@speedrunledger/lexicon'
 import { sql, type Transaction } from 'kysely'
 import type { Logger } from 'pino'
+import { rebuildCategoryBoards } from './boards.js'
 import { checkRun } from './run-check.js'
+
+export interface IndexerOptions {
+  /** Keep leaderboards up to date as records change (on by default). */
+  boards: boolean
+}
 
 type Tx = Transaction<DatabaseSchema>
 
@@ -79,6 +85,7 @@ const handlers: Handlers = {
   [ids.run]: {
     async upsert(tx, { uri, cid, did, record, indexedAt }) {
       const category = refTo(record.category.uri, ids.category, 'category')
+      const previous = await tx.selectFrom('run').select('category_uri').where('uri', '=', uri.toString()).executeTakeFirst()
       const variables: Record<string, string> = {}
       for (const v of record.variables ?? []) {
         if (v.variable in variables) invalid(`variable ${v.variable} is set twice`)
@@ -111,10 +118,14 @@ const handlers: Handlers = {
         .values({ ...row, first_indexed_at: indexedAt })
         .onConflict((oc) => oc.column('uri').doUpdateSet(row))
         .execute()
-      return (indexer) => indexer.recheckRuns({ uri: row.uri })
+      return async (indexer) => {
+        await indexer.recheckRuns({ uri: row.uri })
+        await indexer.rebuildBoards({ categoryUris: [row.category_uri, previous?.category_uri] })
+      }
     },
     async remove(tx, uri) {
-      await tx.deleteFrom('run').where('uri', '=', uri).execute()
+      const row = await tx.deleteFrom('run').where('uri', '=', uri).returning('category_uri').executeTakeFirst()
+      if (row) return (indexer) => indexer.rebuildBoards({ categoryUris: [row.category_uri] })
     },
   },
 
@@ -130,9 +141,11 @@ const handlers: Handlers = {
         indexed_at: indexedAt,
       }
       await tx.insertInto('run_participant').values(row).onConflict((oc) => oc.column('uri').doUpdateSet(row)).execute()
+      return (indexer) => indexer.rebuildBoards({ runUris: [row.run_uri] })
     },
     async remove(tx, uri) {
-      await tx.deleteFrom('run_participant').where('uri', '=', uri).execute()
+      const row = await tx.deleteFrom('run_participant').where('uri', '=', uri).returning('run_uri').executeTakeFirst()
+      if (row) return (indexer) => indexer.rebuildBoards({ runUris: [row.run_uri] })
     },
   },
 
@@ -189,11 +202,17 @@ const handlers: Handlers = {
         indexed_at: indexedAt,
       }
       await tx.insertInto('category').values(row).onConflict((oc) => oc.column('uri').doUpdateSet(row)).execute()
-      return (indexer) => indexer.recheckRuns({ categoryUri: row.uri })
+      return async (indexer) => {
+        await indexer.recheckRuns({ categoryUri: row.uri })
+        await indexer.rebuildBoards({ categoryUris: [row.uri] })
+      }
     },
     async remove(tx, uri) {
       await tx.deleteFrom('category').where('uri', '=', uri).execute()
-      return (indexer) => indexer.recheckRuns({ categoryUri: uri })
+      return async (indexer) => {
+        await indexer.recheckRuns({ categoryUri: uri })
+        await indexer.rebuildBoards({ categoryUris: [uri] })
+      }
     },
   },
 
@@ -247,9 +266,11 @@ const handlers: Handlers = {
         indexed_at: indexedAt,
       }
       await tx.insertInto('verification').values(row).onConflict((oc) => oc.column('uri').doUpdateSet(row)).execute()
+      return (indexer) => indexer.rebuildBoards({ runUris: [row.subject_uri] })
     },
     async remove(tx, uri) {
-      await tx.deleteFrom('verification').where('uri', '=', uri).execute()
+      const row = await tx.deleteFrom('verification').where('uri', '=', uri).returning('subject_uri').executeTakeFirst()
+      if (row) return (indexer) => indexer.rebuildBoards({ runUris: [row.subject_uri] })
     },
   },
 
@@ -389,9 +410,11 @@ const handlers: Handlers = {
         indexed_at: indexedAt,
       }
       await tx.insertInto('ban').values(row).onConflict((oc) => oc.column('uri').doUpdateSet(row)).execute()
+      return (indexer) => indexer.rebuildBoards({ communityDid: did })
     },
     async remove(tx, uri) {
-      await tx.deleteFrom('ban').where('uri', '=', uri).execute()
+      const row = await tx.deleteFrom('ban').where('uri', '=', uri).returning('community_did').executeTakeFirst()
+      if (row) return (indexer) => indexer.rebuildBoards({ communityDid: row.community_did })
     },
   },
 
@@ -418,10 +441,15 @@ const handlers: Handlers = {
  * keyed on record URI and CID, so replaying events is safe.
  */
 export class Indexer {
+  readonly opts: IndexerOptions
+
   constructor(
     readonly db: Database,
     readonly logger: Logger,
-  ) {}
+    opts: Partial<IndexerOptions> = {},
+  ) {
+    this.opts = { boards: true, ...opts }
+  }
 
   async indexRecord(write: RecordWrite, indexedAt = new Date()): Promise<IndexOutcome> {
     const { did, collection, rkey, cid, rev } = write
@@ -541,6 +569,51 @@ export class Indexer {
         .where('created_at', '>=', membership.created_at)
         .where('reviewer_active', '=', false)
         .execute()
+      await this.rebuildBoards({ communityDid: membership.community_did })
+    }
+  }
+
+  /** Rebuilds the boards of every category the given records can affect. */
+  async rebuildBoards(scope: {
+    categoryUris?: (string | null | undefined)[]
+    runUris?: string[]
+    communityDid?: string
+    runnerDid?: string
+  }): Promise<void> {
+    if (!this.opts.boards) return
+    const uris = this.deferredBoards ?? new Set<string>()
+    for (const uri of scope.categoryUris ?? []) if (uri) uris.add(uri)
+    if (scope.runUris?.length) {
+      const rows = await this.db.selectFrom('run').select('category_uri').where('uri', 'in', scope.runUris).execute()
+      for (const r of rows) uris.add(r.category_uri)
+    }
+    if (scope.communityDid) {
+      const rows = await this.db.selectFrom('category').select('uri').where('community_did', '=', scope.communityDid).execute()
+      for (const r of rows) uris.add(r.uri)
+    }
+    if (scope.runnerDid) {
+      const rows = await this.db.selectFrom('run').select('category_uri').distinct().where('runner_did', '=', scope.runnerDid).execute()
+      for (const r of rows) uris.add(r.category_uri)
+    }
+    if (this.deferredBoards) return
+    for (const uri of uris) await rebuildCategoryBoards(this.db, uri)
+  }
+
+  private deferredBoards: Set<string> | null = null
+
+  /**
+   * Runs `fn` with board rebuilds collected instead of run one by one, then
+   * rebuilds each affected category once. Used for backfill.
+   */
+  async withDeferredBoards<T>(fn: () => Promise<T>): Promise<T> {
+    if (this.deferredBoards) return fn()
+    const pending = new Set<string>()
+    this.deferredBoards = pending
+    try {
+      return await fn()
+    } finally {
+      this.deferredBoards = null
+      for (const uri of pending) await rebuildCategoryBoards(this.db, uri)
     }
   }
 
@@ -583,6 +656,7 @@ export class Indexer {
   async setAccountStatus(did: string, active: boolean, status: string | null): Promise<void> {
     await this.ensureActor(did)
     await this.db.updateTable('actor').set({ active, status, updated_at: new Date() }).where('did', '=', did).execute()
+    await this.rebuildBoards({ runnerDid: did })
   }
 
   /** URIs of every indexed ledger record in a repo. */

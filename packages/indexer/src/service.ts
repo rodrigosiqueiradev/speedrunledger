@@ -93,12 +93,16 @@ export class IndexerService {
     this.firehoseDone = this.firehose.start()
     this.logger.info({ service: this.config.firehoseUrl, cursor: startCursor }, 'subscribed to repo events')
 
-    if (startCursor === undefined || this.config.forceBackfill) {
+    if (!this.config.skipBackfill && (startCursor === undefined || this.config.forceBackfill)) {
       await this.backfill()
     }
   }
 
   async backfill(): Promise<{ repos: number }> {
+    return this.indexer.withDeferredBoards(() => this.backfillRepos())
+  }
+
+  private async backfillRepos(): Promise<{ repos: number }> {
     let repos = 0
     for (const source of this.config.backfillSources) {
       this.logger.info({ source }, 'backfill started')

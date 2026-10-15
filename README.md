@@ -73,6 +73,7 @@ pnpm --filter @speedrunledger/indexer dev
 | `BACKFILL_SOURCES` | Comma-separated hosts to list repos from; defaults to `PDS_URL`. |
 | `PLC_URL` | PLC directory; defaults to `https://plc.directory`. |
 | `FORCE_BACKFILL` | `true` to backfill even when a cursor is stored. |
+| `SKIP_BACKFILL` | `true` to only follow new events. |
 | `DEV_MODE` | Allows plain-http identity lookups; on by default when `PLC_URL` is http. |
 
 ## Status

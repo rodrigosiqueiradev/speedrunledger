@@ -2,7 +2,6 @@ import { ids } from '@speedrunledger/lexicon'
 import {
   assertStackUp,
   createAccount,
-  createTestDatabase,
   deleteRecord,
   type DevEnv,
   loadDevEnv,
@@ -12,27 +11,18 @@ import {
   setupCommunity,
   waitFor,
 } from '@speedrunledger/testkit'
-import { pino } from 'pino'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
-import { IndexerService, readConfig } from '../src/index.js'
+import type { IndexerService } from '../src/index.js'
+import { startIndexer as start } from './helpers.js'
 
 // Integration tests: a real PDS and PLC directory under Podman (`pnpm infra:up`).
 
 let env: DevEnv
 const cleanups: (() => Promise<void>)[] = []
 
-async function startIndexer(): Promise<IndexerService> {
-  const database = await createTestDatabase(env)
-  const service = IndexerService.create(
-    readConfig({ DATABASE_URL: database.url, PDS_URL: env.pdsUrl, PLC_URL: env.plcUrl }),
-    pino({ level: process.env.LOG_LEVEL ?? 'silent' }),
-  )
-  await service.migrate()
-  await service.start()
-  cleanups.push(async () => {
-    await service.destroy()
-    await database.drop()
-  })
+async function startIndexer(opts: { backfill?: boolean } = {}): Promise<IndexerService> {
+  const { service, stop } = await start(env, opts)
+  cleanups.push(stop)
   return service
 }
 
@@ -79,7 +69,7 @@ describe('indexer', () => {
     let service: IndexerService
 
     beforeAll(async () => {
-      service = await startIndexer()
+      service = await startIndexer({ backfill: false })
     })
 
     const findRun = (uri: string) => service.db.selectFrom('run').selectAll().where('uri', '=', uri).executeTakeFirst()
@@ -90,8 +80,14 @@ describe('indexer', () => {
       const runner = await createAccount(env, 'runner')
       const run = await putRecord(runner, ids.run, runRecord(community.categories.seventyStar))
 
-      const row = await waitFor(() => findRun(run.uri), { message: 'run to be indexed' })
-      expect(row.problems).toEqual([])
+      // The run and its category live in different repos, so either can be indexed first.
+      await waitFor(
+        async () => {
+          const row = await findRun(run.uri)
+          return row?.problems.length === 0 ? row : undefined
+        },
+        { message: 'run to be indexed with no problems' },
+      )
 
       await waitFor(
         () =>

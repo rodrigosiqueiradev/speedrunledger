@@ -220,7 +220,25 @@ export interface SysadminTable {
   indexed_at: Timestamp
 }
 
+/** One runner's best eligible run on one board. Derived; rebuilt from the tables above. */
+export interface BoardEntryTable {
+  /** Category URI plus the run's value for each subcategory variable. */
+  board_key: string
+  /** The runner's DID (for co-op, the sorted DIDs of the team). */
+  entrant_key: string
+  category_uri: string
+  subcategory: Json<Record<string, string>>
+  rank: number
+  runner_did: string
+  run_uri: string
+  run_cid: string
+  verification_uri: string
+  ranked_ms: number
+  indexed_at: Timestamp
+}
+
 export interface DatabaseSchema {
+  board_entry: BoardEntryTable
   subscription_state: SubscriptionStateTable
   actor: ActorTable
   record: RecordTable

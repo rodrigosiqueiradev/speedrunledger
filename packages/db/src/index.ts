@@ -2,6 +2,7 @@ import { Kysely, PostgresDialect } from 'kysely'
 import { type Migration, type MigrationProvider, Migrator } from 'kysely/migration'
 import pg from 'pg'
 import * as init from './migrations/001-init.js'
+import * as boards from './migrations/002-boards.js'
 import type { DatabaseSchema } from './schema.js'
 
 export * from './schema.js'
@@ -21,6 +22,7 @@ export function createDb(connectionString: string, opts: { max?: number } = {}):
 
 const migrations: Record<string, Migration> = {
   '001-init': init,
+  '002-boards': boards,
 }
 
 class StaticMigrationProvider implements MigrationProvider {
@@ -42,3 +44,14 @@ export async function migrateToLatest(db: Kysely<any>): Promise<void> {
 
 /** Encodes a value for a jsonb column. */
 export const json = (value: unknown): string => JSON.stringify(value)
+
+/**
+ * Identifies one board: a category plus one value for each of its
+ * subcategory variables, e.g. `at://…/category/3k…?version=JP`.
+ */
+export function boardKey(categoryUri: string, subcategory: Record<string, string>): string {
+  const params = Object.keys(subcategory)
+    .sort()
+    .map((id) => `${encodeURIComponent(id)}=${encodeURIComponent(subcategory[id])}`)
+  return params.length === 0 ? categoryUri : `${categoryUri}?${params.join('&')}`
+}

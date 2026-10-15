@@ -9,6 +9,8 @@ export interface IndexerConfig {
   plcUrl: string
   /** Backfill even when a cursor is already stored. */
   forceBackfill: boolean
+  /** Never backfill; only follow new events (useful in tests). */
+  skipBackfill: boolean
   /**
    * Local development: identity lookups may use plain http and localhost,
    * which the default SSRF-protected fetch refuses. Defaults to on when the
@@ -36,6 +38,7 @@ export function readConfig(env: NodeJS.ProcessEnv = process.env): IndexerConfig 
     backfillSources: backfill.split(',').map((s) => s.trim()).filter(Boolean),
     plcUrl,
     forceBackfill: env.FORCE_BACKFILL === 'true',
+    skipBackfill: env.SKIP_BACKFILL === 'true',
     devMode: env.DEV_MODE ? env.DEV_MODE === 'true' : plcUrl.startsWith('http://'),
     logLevel: env.LOG_LEVEL ?? 'info',
   }
