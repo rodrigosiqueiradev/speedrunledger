@@ -176,7 +176,9 @@ export class ModeratorWeb {
     await migrateToLatest(this.db)
     const app = await this.app()
     await new Promise<void>((resolve) => {
-      this.server = app.listen(this.config.port, () => resolve())
+      // IPv4 on purpose: the apps are opened at 127.0.0.1 (OAuth loopback), and WSL,
+      // which Podman uses on Windows, forwards an IPv6 (::) listener only to Windows' ::1.
+      this.server = app.listen(this.config.port, '0.0.0.0', () => resolve())
     })
   }
 

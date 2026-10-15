@@ -24,18 +24,50 @@ document. It is being built in the doc's order; see [Status](#status).
 | `packages/admin-cli` | `ledger-admin`, the sysadmins' command line, and the demo seed. |
 | `packages/testkit` | Helpers for integration tests against the local stack: accounts, records, a hand-built Super Mario 64 community. |
 | `infra/` | Podman images for the local PDS and PLC directory, and `dev.yaml` for `podman kube play`. |
-| `scripts/` | `podman-build.sh`, `dev-up.sh`, `dev-down.sh`, `ledger-admin.sh`, `seed-demo.sh`. |
+| `scripts/` | `podman-build.mjs`, `dev-up.mjs`, `dev-down.mjs`, `ledger-admin.mjs`, `seed-demo.mjs`: the dev stack, in plain Node so they run on Windows too. |
 
 ## Requirements
 
 Node 22+, pnpm 10, and Podman (rootless works; no Docker).
+
+The repo pins pnpm in `packageManager`; `corepack enable` gives you that
+version. The scripts behind `pnpm infra:*`, `pnpm seed` and `pnpm ledger-admin`
+are plain Node, so they run the same from bash, WSL or Windows PowerShell.
+
+### Windows
+
+From PowerShell, install Node 22 or later, pnpm and Podman, and start a Podman
+machine (Podman runs its containers in a small WSL VM):
+
+```powershell
+winget install OpenJS.NodeJS.LTS
+winget install RedHat.Podman
+# open a new terminal so both are on PATH
+npm install -g pnpm@10.28.0
+podman machine init
+podman machine start
+pnpm install
+pnpm infra:up
+```
+
+The stack uses host networking inside the Podman machine; WSL forwards its
+`localhost` ports to Windows, so the apps open at the same
+`http://127.0.0.1:2585` and `:2587`. Secrets go to
+`%USERPROFILE%\.local\share\speedrunledger\dev.env`.
+
+If you work inside WSL instead, keep the clone in the Linux filesystem
+(`~/…`) and install Node and Podman in WSL too. WSL appends the Windows `PATH`
+to yours, so a Windows pnpm can be picked up instead and fails with `current
+dir is an absolute path with drive letter`. `which -a node pnpm` must not list
+`/mnt/c/…` first; if it does, install Node in WSL (for example with nvm) and run
+`corepack enable`.
 
 ## Local stack
 
 ```sh
 pnpm install
 pnpm infra:up      # builds images if needed, then starts the pods
-pnpm infra:down    # stop; `scripts/dev-down.sh --volumes` also deletes data
+pnpm infra:down    # stop; `pnpm infra:down --volumes` also deletes data
 ```
 
 `infra:up` runs `podman kube play infra/dev.yaml`, which starts four pods on
@@ -49,7 +81,7 @@ the host network:
 - `ledger-community`: the community service on `localhost:2586`, alone in its
   pod because it holds the community accounts' sessions.
 
-Images are built the first time; after changing code, `scripts/dev-up.sh
+Images are built the first time; after changing code, `pnpm infra:up
 --build` rebuilds our services' images.
 
 Open the apps at `127.0.0.1`, not `localhost`: in development they sign in as
@@ -70,7 +102,7 @@ pending request for a Super Mario Sunshine community. One of `boo.test`'s
 runs is flagged as suspected cheating, and the world records are announced
 from `sm64.test` as Bluesky posts. Every password is
 `demo-password`. Seeding twice does nothing; start over with
-`scripts/dev-down.sh --volumes`.
+`pnpm infra:down --volumes`.
 
 To make your own account on the local PDS instead:
 
@@ -254,7 +286,7 @@ pnpm ledger-admin community export sm64.test --out sm64.car
 pnpm ledger-admin videos check
 ```
 
-`scripts/ledger-admin.sh` reads the admin token and URLs from `dev.env`.
+`scripts/ledger-admin.mjs` reads the admin token and URLs from `dev.env`.
 Sysadmins set up the platform account (`platform init`), add sysadmins, answer
 community requests (create or deny with a reason), add games, appoint a
 moderator only when a community has none active, freeze and unfreeze, and

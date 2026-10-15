@@ -1,11 +1,11 @@
-# Local development and demo stack: `pnpm infra:up` (scripts/dev-up.sh).
+# Local development and demo stack: `pnpm infra:up` (scripts/dev-up.mjs).
 #
 # Pods share the host network so every service, the tests and the browser
 # see the same URLs (localhost:2582 PLC, localhost:2583 PDS,
 # localhost:5433 Postgres, localhost:2584 AppView, localhost:2586 community service,
 # 127.0.0.1:2585 Runner app, 127.0.0.1:2587 Moderator app). The indexer follows the PDS's own event stream,
 # since there is no relay locally. Secrets come from the `ledger-dev` podman secret
-# that dev-up.sh generates on first run.
+# that dev-up.mjs generates on first run.
 apiVersion: v1
 kind: Pod
 metadata:
