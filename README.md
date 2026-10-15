@@ -111,6 +111,10 @@ from `sm64.test` as Bluesky posts. Every password is
 request. Seeding twice does nothing; start over with
 `pnpm infra:down --volumes`.
 
+To walk through the whole flow by hand instead (accounts, platform setup,
+a community request, votes, a run and its review), follow
+[docs/demo-from-scratch.md](docs/demo-from-scratch.md).
+
 To make your own account on the local PDS instead:
 
 ```sh
