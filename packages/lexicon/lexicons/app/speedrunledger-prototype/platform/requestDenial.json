@@ -1,0 +1,40 @@
+{
+  "lexicon": 1,
+  "id": "app.speedrunledger-prototype.platform.requestDenial",
+  "defs": {
+    "main": {
+      "type": "record",
+      "key": "tid",
+      "description": "A sysadmin's denial of a community request, in the platform account's repo, with a reason the requester can see.",
+      "record": {
+        "type": "object",
+        "required": [
+          "request",
+          "reason",
+          "sysadmin",
+          "createdAt"
+        ],
+        "properties": {
+          "request": {
+            "type": "ref",
+            "ref": "com.atproto.repo.strongRef",
+            "description": "The community.request being denied."
+          },
+          "reason": {
+            "type": "string",
+            "maxLength": 10000,
+            "maxGraphemes": 1000
+          },
+          "sysadmin": {
+            "type": "string",
+            "format": "did"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "datetime"
+          }
+        }
+      }
+    }
+  }
+}

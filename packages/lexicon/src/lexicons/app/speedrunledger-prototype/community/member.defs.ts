@@ -17,7 +17,7 @@ type Main = {
   subject: l.DidString
 
   /**
-   * The community.request or passed community.proposal that justified this membership.
+   * The community.request, passed community.proposal or community.intervention (appointment) that justified this membership.
    */
   via?: RepoStrongRef.Main
   createdAt: l.DatetimeString

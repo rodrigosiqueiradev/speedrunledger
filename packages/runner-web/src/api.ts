@@ -1,4 +1,4 @@
-import type { BoardEntry, CategoryView, CommunityDetail, CommunityView, GameView, RunView } from '@speedrunledger/lexicon'
+import type { BoardEntry, CategoryView, CommunityDetail, CommunityView, GameView, RequestView, RunView } from '@speedrunledger/lexicon'
 
 import { call, postJson, query } from '@speedrunledger/web-ui'
 
@@ -17,5 +17,9 @@ export const api = {
   logout: () => call('/api/logout', { method: 'POST' }),
   submitRun: (run: unknown) => postJson<{ uri: string; cid: string }>('/api/runs', run),
   updateRun: (rkey: string, run: unknown) => postJson<{ uri: string; cid: string }>(`/api/runs/${encodeURIComponent(rkey)}`, run, 'PUT'),
+  listMyRequests: (requester: string) =>
+    query<{ requests: RequestView[] }>('listCommunityRequests', { requester, status: 'all', limit: '100' }),
+  requestCommunity: (input: { game: { title: string; releaseYear?: number; platforms?: string[] }; founders: string[]; note?: string }) =>
+    postJson<{ uri: string; cid: string }>('/api/requests', input),
   deleteRun: (rkey: string) => call('/api/runs/' + encodeURIComponent(rkey), { method: 'DELETE' }),
 }

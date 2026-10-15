@@ -3,7 +3,9 @@ import { LexRouter, LexServerError, serviceAuth } from '@atproto/lex-server'
 import { createServer, type Server } from '@atproto/lex-server/nodejs'
 import { ledger } from '@speedrunledger/lexicon'
 import { pino, type Logger } from 'pino'
+import { AdminService } from './admin.js'
 import type { CommunityServiceConfig } from './config.js'
+import { ProposalExecutor } from './executor.js'
 import { CommunityService } from './service.js'
 
 const json = (body: unknown, status = 200) =>
@@ -14,13 +16,18 @@ const sameSecret = (a: string, b: string) => {
   return x.length === y.length && timingSafeEqual(x, y)
 }
 
+type Body = Record<string, any>
+type AdminRoute = (body: Body, params: Record<string, string>) => Promise<unknown>
+
 /**
- * The community service over HTTP: `createVerdict` for moderators (service
- * auth), admin endpoints for the admin CLI (bearer token), and the did:web
- * document naming this service.
+ * The community service over HTTP: moderator procedures (service auth),
+ * admin endpoints for `ledger-admin` (bearer token), and the did:web
+ * document naming this service. Also runs the proposal executor.
  */
 export class CommunityServiceServer {
   readonly service: CommunityService
+  readonly admin: AdminService
+  readonly executor: ProposalExecutor
   private server?: Server
 
   constructor(
@@ -28,6 +35,8 @@ export class CommunityServiceServer {
     logger: Logger = pino({ level: process.env.LOG_LEVEL ?? 'info' }),
   ) {
     this.service = new CommunityService(config, logger)
+    this.admin = new AdminService(this.service, { url: config.pdsUrl ?? '', adminPassword: config.pdsAdminPassword })
+    this.executor = new ProposalExecutor(this.service)
   }
 
   get url(): string {
@@ -55,30 +64,91 @@ export class CommunityServiceServer {
     // which would cancel the DID lookup for every procedure call; give auth its own.
     const auth: typeof verify = (ctx) =>
       verify({ ...ctx, request: { headers: ctx.request.headers, signal: AbortSignal.timeout(10_000) } as Request })
-    return new LexRouter().add(ledger.moderation.createVerdict, {
-      auth,
-      handler: async ({ credentials, input }) => ({
-        body: await this.service.createVerdict(credentials.did, input.body),
-      }),
-    })
+    return new LexRouter()
+      .add(ledger.moderation.createVerdict, {
+        auth,
+        handler: async ({ credentials, input }) => ({ body: await this.service.createVerdict(credentials.did, input.body) }),
+      })
+      .add(ledger.moderation.createBan, {
+        auth,
+        handler: async ({ credentials, input }) => ({ body: await this.service.createBan(credentials.did, input.body) }),
+      })
+      .add(ledger.moderation.updateGame, {
+        auth,
+        handler: async ({ credentials, input }) => ({ body: await this.service.updateGame(credentials.did, input.body) }),
+      })
   }
 
-  private async admin(request: Request, url: URL): Promise<Response> {
+  /** Admin endpoints, keyed by "METHOD /path" with :params. */
+  private adminRoutes(): Record<string, AdminRoute> {
+    const { admin, service } = this
+    const need = (body: Body, ...keys: string[]) => {
+      for (const key of keys) {
+        if (typeof body[key] !== 'string' || !body[key]) throw new LexServerError(400, { error: 'InvalidRequest', message: `${key} is required` })
+      }
+    }
+    return {
+      'GET /admin/communities': async () => ({ communities: await service.listCommunities() }),
+      'POST /admin/communities': async (b) => {
+        need(b, 'identifier', 'password', 'pdsUrl')
+        return service.registerAccount({ identifier: b.identifier, password: b.password, pdsUrl: b.pdsUrl }, 'community')
+      },
+      'POST /admin/communities/create': async (b) => {
+        need(b, 'sysadmin', 'handle', 'name')
+        return admin.createCommunity(b as never)
+      },
+      'POST /admin/communities/:did/games': async (b, p) => {
+        need(b, 'sysadmin', 'title')
+        return admin.addGame(b.sysadmin, p.did, { title: b.title, releaseYear: b.releaseYear, platforms: b.platforms })
+      },
+      'POST /admin/communities/:did/appoint': async (b, p) => {
+        need(b, 'sysadmin', 'subject', 'reason')
+        return admin.appoint(b.sysadmin, p.did, b.subject, b.reason)
+      },
+      'POST /admin/communities/:did/freeze': async (b, p) => {
+        need(b, 'sysadmin', 'reason')
+        return admin.setFrozen(b.sysadmin, p.did, true, b.reason)
+      },
+      'POST /admin/communities/:did/unfreeze': async (b, p) => {
+        need(b, 'sysadmin', 'reason')
+        return admin.setFrozen(b.sysadmin, p.did, false, b.reason)
+      },
+      'POST /admin/platform': async (b) => {
+        need(b, 'handle', 'sysadmin')
+        return admin.initPlatform({ handle: b.handle, sysadmin: b.sysadmin, email: b.email })
+      },
+      'GET /admin/sysadmins': async () => ({ sysadmins: await admin.listSysadmins() }),
+      'POST /admin/sysadmins': async (b) => {
+        need(b, 'sysadmin', 'subject')
+        return admin.addSysadmin(b.sysadmin, b.subject)
+      },
+      'POST /admin/requests/deny': async (b) => {
+        need(b, 'sysadmin', 'request', 'reason')
+        return admin.denyRequest(b.sysadmin, b.request, b.reason)
+      },
+      'POST /admin/proposals/execute': async () => ({ executed: await this.executor.runOnce() }),
+    }
+  }
+
+  private async handleAdmin(request: Request, url: URL): Promise<Response> {
     const token = request.headers.get('authorization')?.replace(/^Bearer /, '') ?? ''
     if (!sameSecret(token, this.config.adminToken)) return json({ error: 'AuthenticationRequired' }, 401)
-    if (url.pathname === '/admin/communities' && request.method === 'GET') {
-      return json({ communities: await this.service.listCommunities() })
-    }
-    if (url.pathname === '/admin/communities' && request.method === 'POST') {
-      const body = (await request.json().catch(() => ({}))) as Record<string, unknown>
-      const { identifier, password, pdsUrl } = body
-      if (typeof identifier !== 'string' || typeof password !== 'string' || typeof pdsUrl !== 'string') {
-        return json({ error: 'InvalidRequest', message: 'identifier, password and pdsUrl are required' }, 400)
+    const segments = url.pathname.split('/')
+    for (const [key, route] of Object.entries(this.adminRoutes())) {
+      const [method, pattern] = key.split(' ')
+      const parts = pattern.split('/')
+      if (method !== request.method || parts.length !== segments.length) continue
+      const params: Record<string, string> = {}
+      if (!parts.every((part, i) => (part.startsWith(':') ? (params[part.slice(1)] = decodeURIComponent(segments[i])) : part === segments[i]))) {
+        continue
       }
+      const body = request.method === 'GET' ? {} : ((await request.json().catch(() => ({}))) as Body)
       try {
-        return json(await this.service.registerCommunity({ identifier, password, pdsUrl }))
+        return json(await route(body, params))
       } catch (err) {
-        return json({ error: 'LoginFailed', message: (err as Error).message }, 400)
+        if (err instanceof LexServerError) return err.toResponse()
+        this.service.logger.error({ err, path: url.pathname }, 'admin request failed')
+        return json({ error: 'InternalServerError', message: (err as Error).message }, 500)
       }
     }
     return json({ error: 'NotFound' }, 404)
@@ -97,7 +167,7 @@ export class CommunityServiceServer {
         })
       }
       if (url.pathname === '/_health') return json({ ok: true })
-      if (url.pathname.startsWith('/admin/')) return this.admin(request, url)
+      if (url.pathname.startsWith('/admin/')) return this.handleAdmin(request, url)
       try {
         return await router.fetch(request)
       } catch (err) {
@@ -107,9 +177,11 @@ export class CommunityServiceServer {
     const server = createServer(fetch, { gracefulTerminationTimeout: 2000 })
     this.server = server
     await new Promise<void>((resolve) => server.listen(this.config.port, resolve))
+    if (this.config.executorIntervalMs > 0) this.executor.start(this.config.executorIntervalMs)
   }
 
   async destroy(): Promise<void> {
+    await this.executor.stop()
     if (this.server) await this.server.terminate()
     await this.service.destroy()
   }

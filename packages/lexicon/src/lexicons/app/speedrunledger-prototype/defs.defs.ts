@@ -6,6 +6,7 @@ import { l } from '@atproto/lex'
 import * as SpeedrunledgerPrototypeCategory from './category.defs.js'
 import * as SpeedrunledgerPrototypeRun from './run.defs.js'
 import * as RepoStrongRef from '../../com/atproto/repo/strongRef.defs.js'
+import * as CommunityRequest from './community/request.defs.js'
 
 const $nsid = 'app.speedrunledger-prototype.defs'
 
@@ -40,6 +41,11 @@ type CommunityView = {
   handle?: l.HandleString
   name: string
   description?: string
+
+  /**
+   * Frozen by a sysadmin: boards stay visible, but no verdicts, votes or changes are accepted.
+   */
+  frozen?: boolean
 }
 
 export type { CommunityView }
@@ -54,6 +60,7 @@ const communityView = /*#__PURE__*/ l.typedObject<CommunityView>(
     ),
     name: /*#__PURE__*/ l.string(),
     description: /*#__PURE__*/ l.optional(/*#__PURE__*/ l.string()),
+    frozen: /*#__PURE__*/ l.optional(/*#__PURE__*/ l.boolean()),
   }),
 )
 
@@ -422,3 +429,219 @@ const membershipView = /*#__PURE__*/ l.typedObject<MembershipView>(
 )
 
 export { membershipView }
+
+type ProposalView = {
+  $type?: 'app.speedrunledger-prototype.defs#proposalView'
+  uri: l.AtUriString
+  cid: l.CidString
+  community: l.DidString
+  proposer: ActorView
+  actionType:
+    'invite' | 'kick' | 'putRecord' | 'liftBan' | 'migrate' | l.UnknownString
+
+  /**
+   * The proposal's action as written.
+   */
+  action: l.LexMap
+  reason: string
+  status: 'open' | 'passed' | 'failed' | 'expired' | 'invalid' | l.UnknownString
+
+  /**
+   * The community service has written the result of a passed proposal.
+   */
+  executed: boolean
+
+  /**
+   * The record the community service wrote, when there is one.
+   */
+  result?: l.AtUriString
+
+  /**
+   * Active moderators when the proposal was indexed, minus the target of a kick.
+   */
+  electorateSize: number
+
+  /**
+   * Yes votes needed to pass: more than half the electorate.
+   */
+  needed: number
+  yes: number
+  no: number
+  votes: VoteView[]
+
+  /**
+   * Why an invalid proposal does not count.
+   */
+  problems: string[]
+  createdAt: l.DatetimeString
+  expiresAt: l.DatetimeString
+  indexedAt: l.DatetimeString
+}
+
+export type { ProposalView }
+
+const proposalView = /*#__PURE__*/ l.typedObject<ProposalView>(
+  $nsid,
+  'proposalView',
+  /*#__PURE__*/ l.object({
+    uri: /*#__PURE__*/ l.string({ format: 'at-uri' }),
+    cid: /*#__PURE__*/ l.string({ format: 'cid' }),
+    community: /*#__PURE__*/ l.string({ format: 'did' }),
+    proposer: /*#__PURE__*/ l.ref<ActorView>((() => actorView) as any),
+    actionType: /*#__PURE__*/ l.string<{
+      knownValues: ['invite', 'kick', 'putRecord', 'liftBan', 'migrate']
+    }>(),
+    action: /*#__PURE__*/ l.lexMap(),
+    reason: /*#__PURE__*/ l.string(),
+    status: /*#__PURE__*/ l.string<{
+      knownValues: ['open', 'passed', 'failed', 'expired', 'invalid']
+    }>(),
+    executed: /*#__PURE__*/ l.boolean(),
+    result: /*#__PURE__*/ l.optional(
+      /*#__PURE__*/ l.string({ format: 'at-uri' }),
+    ),
+    electorateSize: /*#__PURE__*/ l.integer(),
+    needed: /*#__PURE__*/ l.integer(),
+    yes: /*#__PURE__*/ l.integer(),
+    no: /*#__PURE__*/ l.integer(),
+    votes: /*#__PURE__*/ l.array(
+      /*#__PURE__*/ l.ref<VoteView>((() => voteView) as any),
+    ),
+    problems: /*#__PURE__*/ l.array(/*#__PURE__*/ l.string()),
+    createdAt: /*#__PURE__*/ l.string({ format: 'datetime' }),
+    expiresAt: /*#__PURE__*/ l.string({ format: 'datetime' }),
+    indexedAt: /*#__PURE__*/ l.string({ format: 'datetime' }),
+  }),
+)
+
+export { proposalView }
+
+type VoteView = {
+  $type?: 'app.speedrunledger-prototype.defs#voteView'
+  voter: ActorView
+  value: 'yes' | 'no' | l.UnknownString
+  reason?: string
+  indexedAt: l.DatetimeString
+}
+
+export type { VoteView }
+
+const voteView = /*#__PURE__*/ l.typedObject<VoteView>(
+  $nsid,
+  'voteView',
+  /*#__PURE__*/ l.object({
+    voter: /*#__PURE__*/ l.ref<ActorView>((() => actorView) as any),
+    value: /*#__PURE__*/ l.string<{ knownValues: ['yes', 'no'] }>(),
+    reason: /*#__PURE__*/ l.optional(/*#__PURE__*/ l.string()),
+    indexedAt: /*#__PURE__*/ l.string({ format: 'datetime' }),
+  }),
+)
+
+export { voteView }
+
+type ModeratorView = {
+  $type?: 'app.speedrunledger-prototype.defs#moderatorView'
+  actor: ActorView
+  status: 'active' | 'invited' | l.UnknownString
+  grant: RepoStrongRef.Main
+  since: l.DatetimeString
+
+  /**
+   * Newest verdict, proposal or vote by this moderator in this community.
+   */
+  lastActiveAt?: l.DatetimeString
+}
+
+export type { ModeratorView }
+
+const moderatorView = /*#__PURE__*/ l.typedObject<ModeratorView>(
+  $nsid,
+  'moderatorView',
+  /*#__PURE__*/ l.object({
+    actor: /*#__PURE__*/ l.ref<ActorView>((() => actorView) as any),
+    status: /*#__PURE__*/ l.string<{ knownValues: ['active', 'invited'] }>(),
+    grant: /*#__PURE__*/ l.ref<RepoStrongRef.Main>(
+      (() => RepoStrongRef.main) as any,
+    ),
+    since: /*#__PURE__*/ l.string({ format: 'datetime' }),
+    lastActiveAt: /*#__PURE__*/ l.optional(
+      /*#__PURE__*/ l.string({ format: 'datetime' }),
+    ),
+  }),
+)
+
+export { moderatorView }
+
+type BanView = {
+  $type?: 'app.speedrunledger-prototype.defs#banView'
+  uri: l.AtUriString
+  cid: l.CidString
+  subject: ActorView
+  moderator: ActorView
+  reason: string
+  indexedAt: l.DatetimeString
+}
+
+export type { BanView }
+
+const banView = /*#__PURE__*/ l.typedObject<BanView>(
+  $nsid,
+  'banView',
+  /*#__PURE__*/ l.object({
+    uri: /*#__PURE__*/ l.string({ format: 'at-uri' }),
+    cid: /*#__PURE__*/ l.string({ format: 'cid' }),
+    subject: /*#__PURE__*/ l.ref<ActorView>((() => actorView) as any),
+    moderator: /*#__PURE__*/ l.ref<ActorView>((() => actorView) as any),
+    reason: /*#__PURE__*/ l.string(),
+    indexedAt: /*#__PURE__*/ l.string({ format: 'datetime' }),
+  }),
+)
+
+export { banView }
+
+type RequestView = {
+  $type?: 'app.speedrunledger-prototype.defs#requestView'
+  uri: l.AtUriString
+  cid: l.CidString
+  requester: ActorView
+  game: CommunityRequest.GameInfo
+  founders: ActorView[]
+  note?: string
+  status: 'pending' | 'approved' | 'denied' | l.UnknownString
+  denialReason?: string
+
+  /**
+   * The community created from this request.
+   */
+  community?: l.DidString
+  indexedAt: l.DatetimeString
+}
+
+export type { RequestView }
+
+const requestView = /*#__PURE__*/ l.typedObject<RequestView>(
+  $nsid,
+  'requestView',
+  /*#__PURE__*/ l.object({
+    uri: /*#__PURE__*/ l.string({ format: 'at-uri' }),
+    cid: /*#__PURE__*/ l.string({ format: 'cid' }),
+    requester: /*#__PURE__*/ l.ref<ActorView>((() => actorView) as any),
+    game: /*#__PURE__*/ l.ref<CommunityRequest.GameInfo>(
+      (() => CommunityRequest.gameInfo) as any,
+    ),
+    founders: /*#__PURE__*/ l.array(
+      /*#__PURE__*/ l.ref<ActorView>((() => actorView) as any),
+    ),
+    note: /*#__PURE__*/ l.optional(/*#__PURE__*/ l.string()),
+    status: /*#__PURE__*/ l.string<{
+      knownValues: ['pending', 'approved', 'denied']
+    }>(),
+    denialReason: /*#__PURE__*/ l.optional(/*#__PURE__*/ l.string()),
+    community: /*#__PURE__*/ l.optional(
+      /*#__PURE__*/ l.string({ format: 'did' }),
+    ),
+    indexedAt: /*#__PURE__*/ l.string({ format: 'datetime' }),
+  }),
+)
+
+export { requestView }

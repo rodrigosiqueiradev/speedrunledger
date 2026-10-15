@@ -1,0 +1,59 @@
+{
+  "lexicon": 1,
+  "id": "app.speedrunledger-prototype.listProposals",
+  "defs": {
+    "main": {
+      "type": "query",
+      "description": "A community's proposals with their tallies, newest first.",
+      "parameters": {
+        "type": "params",
+        "required": [
+          "community"
+        ],
+        "properties": {
+          "community": {
+            "type": "string",
+            "format": "did"
+          },
+          "status": {
+            "type": "string",
+            "knownValues": [
+              "open",
+              "closed"
+            ],
+            "description": "open: still being voted on; closed: everything else."
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100,
+            "default": 50
+          }
+        }
+      },
+      "output": {
+        "encoding": "application/json",
+        "schema": {
+          "type": "object",
+          "required": [
+            "proposals"
+          ],
+          "properties": {
+            "proposals": {
+              "type": "array",
+              "items": {
+                "type": "ref",
+                "ref": "app.speedrunledger-prototype.defs#proposalView"
+              }
+            }
+          }
+        }
+      },
+      "errors": [
+        {
+          "name": "NotFound"
+        }
+      ]
+    }
+  }
+}

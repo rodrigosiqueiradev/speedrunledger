@@ -3,6 +3,7 @@ import '@speedrunledger/web-ui/style.css'
 import { StrictMode, useEffect, useState } from 'react'
 import { createRoot } from 'react-dom/client'
 import { api } from './api.js'
+import { CommunityPage } from './pages/CommunityPage.js'
 import { HomePage } from './pages/HomePage.js'
 import { QueuePage } from './pages/QueuePage.js'
 import { ReviewPage } from './pages/ReviewPage.js'
@@ -47,6 +48,9 @@ function App() {
       case '/queue':
         page = <QueuePage community={location.searchParams.get('community') ?? ''} />
         break
+      case '/community':
+        page = <CommunityPage did={location.searchParams.get('did') ?? ''} tab={location.searchParams.get('tab') ?? ''} me={me} />
+        break
       case '/review':
         page = <ReviewPage uri={location.searchParams.get('uri') ?? ''} me={me} />
         break
@@ -80,7 +84,7 @@ function App() {
       </header>
       {loginError && <p className="error banner">Sign-in failed: {loginError}</p>}
       <main>{page}</main>
-      <footer>Every verdict is a public record in the community’s repo that names its reviewer.</footer>
+      <footer>Every verdict, ban, proposal and vote is a public record that names who made it.</footer>
     </>
   )
 }

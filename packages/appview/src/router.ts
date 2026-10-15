@@ -1,7 +1,8 @@
 import { LexRouter, LexServerError } from '@atproto/lex-server'
 import { sql } from 'kysely'
 import { boardKey, type CategoryVariable, type Database } from '@speedrunledger/db'
-import { ledger, type MembershipView, type QueueItem, type RunView } from '@speedrunledger/lexicon'
+import { platformDid } from '@speedrunledger/db'
+import { ledger, type MembershipView, type QueueItem, type RequestView, type RunView } from '@speedrunledger/lexicon'
 import { Views } from './views.js'
 
 const notFound = (message: string) => new LexServerError(404, { error: 'NotFound', message })
@@ -10,6 +11,10 @@ const invalid = (message: string) => new LexServerError(400, { error: 'InvalidRe
 /** XRPC queries of the AppView, served from the indexer's database. */
 export function createRouter(db: Database): LexRouter {
   const views = new Views(db)
+  const requireCommunity = async (did: string) => {
+    const row = await db.selectFrom('community').select('did').where('did', '=', did).executeTakeFirst()
+    if (!row) throw notFound('Community not found')
+  }
 
   return new LexRouter()
     .add(ledger.listCommunities, async ({ params }) => {
@@ -69,13 +74,13 @@ export function createRouter(db: Database): LexRouter {
         ? await db.selectFrom('run').selectAll().where('uri', 'in', entries.map((e) => e.run_uri)).execute()
         : []
       const runViews = new Map<string, RunView>((await views.runs(runs)).map((r) => [r.uri, r]))
-      const handles = await views.actors([community.did])
+      const communityViews = await views.communities([community])
 
       return {
         body: {
           category: views.category(category, rulesets.get(category.uri)),
           game: views.game(game),
-          community: views.community(community, handles.get(community.did)?.handle),
+          community: communityViews.get(community.did)!,
           subcategory: Object.entries(subcategory).map(([variable, value]) => ({ variable, value })),
           entries: entries.flatMap((e) => {
             const run = runViews.get(e.run_uri)
@@ -204,17 +209,105 @@ export function createRouter(db: Database): LexRouter {
         .where('m.member_did', '=', actor.did)
         .orderBy('c.name')
         .execute()
-      const handles = await views.actors(rows.map((r) => r.did))
+      const communityViews = await views.communities(rows)
       return {
         body: {
           memberships: rows.map(
             (r): MembershipView =>
               ({
-                community: views.community(r, handles.get(r.did)?.handle),
+                community: communityViews.get(r.did)!,
                 status: r.active ? 'active' : 'invited',
                 grant: { uri: r.grant_uri, cid: r.grant_cid },
               }) as MembershipView,
           ),
+        },
+      }
+    })
+
+    .add(ledger.listProposals, async ({ params }) => {
+      await requireCommunity(params.community)
+      const rows = await db
+        .selectFrom('proposal')
+        .selectAll()
+        .where('community_did', '=', params.community)
+        .orderBy('first_indexed_at', 'desc')
+        .limit(params.status ? 500 : (params.limit ?? 50))
+        .execute()
+      let proposals = await views.proposals(rows)
+      if (params.status === 'open') proposals = proposals.filter((p) => p.status === 'open')
+      if (params.status === 'closed') proposals = proposals.filter((p) => p.status !== 'open')
+      return { body: { proposals: proposals.slice(0, params.limit ?? 50) } }
+    })
+
+    .add(ledger.getProposal, async ({ params }) => {
+      const row = await db.selectFrom('proposal').selectAll().where('uri', '=', params.uri).executeTakeFirst()
+      if (!row) throw notFound('Proposal not found')
+      const [proposal] = await views.proposals([row])
+      return { body: { proposal } }
+    })
+
+    .add(ledger.listModerators, async ({ params }) => {
+      await requireCommunity(params.community)
+      return { body: { moderators: await views.moderators(params.community) } }
+    })
+
+    .add(ledger.listBans, async ({ params }) => {
+      await requireCommunity(params.community)
+      return { body: { bans: await views.bans(params.community) } }
+    })
+
+    .add(ledger.listCommunityRequests, async ({ params }) => {
+      let query = db.selectFrom('community_request').selectAll().orderBy('indexed_at').limit(params.limit ?? 50)
+      if (params.requester) query = query.where('requester_did', '=', params.requester)
+      const platform = await platformDid(db)
+      if (params.status !== 'all') {
+        query = query
+          .where(({ not, exists, selectFrom }) =>
+            not(exists(selectFrom('community_member as m').select('m.uri').whereRef('m.via_uri', '=', 'community_request.uri'))),
+          )
+          .where(({ not, exists, selectFrom }) =>
+            not(
+              exists(
+                selectFrom('request_denial as d')
+                  .select('d.uri')
+                  .whereRef('d.request_uri', '=', 'community_request.uri')
+                  .where('d.owner_did', '=', platform ?? ''),
+              ),
+            ),
+          )
+      }
+      const rows = await query.execute()
+      const uris = rows.map((r) => r.uri)
+      const [grants, denials] = uris.length
+        ? await Promise.all([
+            db.selectFrom('community_member').select(['via_uri', 'community_did']).where('via_uri', 'in', uris).execute(),
+            db
+              .selectFrom('request_denial')
+              .select(['request_uri', 'reason'])
+              .where('request_uri', 'in', uris)
+              .where('owner_did', '=', platform ?? '')
+              .execute(),
+          ])
+        : [[], []]
+      const actors = await views.actors(rows.flatMap((r) => [r.requester_did, ...r.founders]))
+      return {
+        body: {
+          requests: rows.map((r): RequestView => {
+            const grant = grants.find((g) => g.via_uri === r.uri)
+            const denial = denials.find((d) => d.request_uri === r.uri)
+            return {
+              uri: r.uri,
+              cid: r.cid,
+              requester: actors.get(r.requester_did)!,
+              game: r.game,
+              founders: r.founders.map((did) => actors.get(did)!),
+              note: r.note ?? undefined,
+              status: grant ? 'approved' : denial ? 'denied' : 'pending',
+              denialReason: grant ? undefined : denial?.reason,
+              community: grant?.community_did,
+              indexedAt: r.indexed_at.toISOString(),
+            } as RequestView
+          }),
         },
       }
     })

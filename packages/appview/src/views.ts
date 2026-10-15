@@ -1,7 +1,10 @@
-import type { CategoryVariable, Database } from '@speedrunledger/db'
+import { type CategoryVariable, type Database, freezeIntervals, isFrozen, type ProposalRow, tallyProposals } from '@speedrunledger/db'
 import type { DatabaseSchema } from '@speedrunledger/db'
 import type {
   ActorView,
+  BanView,
+  ModeratorView,
+  ProposalView,
   CategoryView,
   CommunityDetail,
   CommunityView,
@@ -35,8 +38,126 @@ export class Views {
     return map
   }
 
-  community(row: Row<'community'>, handle?: string | null): CommunityView {
-    return compact({ did: row.did, handle: handle ?? undefined, name: row.name, description: row.description ?? undefined }) as CommunityView
+  community(row: Row<'community'>, handle?: string | null, frozen?: boolean): CommunityView {
+    return compact({
+      did: row.did,
+      handle: handle ?? undefined,
+      name: row.name,
+      description: row.description ?? undefined,
+      frozen: frozen || undefined,
+    }) as CommunityView
+  }
+
+  /** Community views with handles and freeze state. */
+  async communities(rows: Row<'community'>[]): Promise<Map<string, CommunityView>> {
+    const dids = rows.map((r) => r.did)
+    const [handles, frozen] = await Promise.all([this.actors(dids), freezeIntervals(this.db, dids)])
+    return new Map(rows.map((r) => [r.did, this.community(r, handles.get(r.did)?.handle, isFrozen(frozen.get(r.did)))]))
+  }
+
+  /** Proposals with their tallies, counted votes and whether the community service carried them out. */
+  async proposals(rows: ProposalRow[]): Promise<ProposalView[]> {
+    if (rows.length === 0) return []
+    const [tallies, executions] = await Promise.all([
+      tallyProposals(this.db, rows),
+      this.db.selectFrom('proposal_execution').selectAll().where('proposal_uri', 'in', rows.map((r) => r.uri)).execute(),
+    ])
+    const actors = await this.actors([...rows.map((r) => r.proposer_did), ...[...tallies.values()].flatMap((t) => t.votes.map((v) => v.voter))])
+    const executed = new Map(executions.map((e) => [e.proposal_uri, e]))
+    return rows.map((p) => {
+      const tally = tallies.get(p.uri)!
+      const execution = executed.get(p.uri)
+      return compact({
+        uri: p.uri,
+        cid: p.cid,
+        community: p.community_did,
+        proposer: actors.get(p.proposer_did)!,
+        actionType: p.action_type,
+        action: p.action,
+        reason: p.reason,
+        status: tally.status,
+        executed: Boolean(execution?.executed_at),
+        result: execution?.result_uri ?? undefined,
+        electorateSize: tally.electorateSize,
+        needed: tally.needed,
+        yes: tally.yes,
+        no: tally.no,
+        votes: tally.votes.map((v) =>
+          compact({ voter: actors.get(v.voter)!, value: v.value, reason: v.reason ?? undefined, indexedAt: iso(v.indexedAt) }),
+        ),
+        problems: p.problems,
+        createdAt: p.created_at,
+        expiresAt: iso(tally.expiresAt),
+        indexedAt: iso(p.first_indexed_at),
+      }) as ProposalView
+    })
+  }
+
+  /** A community's moderators with when each last wrote a verdict (as reviewer), proposal or vote. */
+  async moderators(communityDid: string): Promise<ModeratorView[]> {
+    const members = await this.db
+      .selectFrom('community_member')
+      .selectAll()
+      .where('community_did', '=', communityDid)
+      .orderBy('created_at')
+      .execute()
+    if (members.length === 0) return []
+    const dids = members.map((m) => m.member_did)
+    const [actors, verdicts, proposals, votes] = await Promise.all([
+      this.actors(dids),
+      this.db
+        .selectFrom('verification')
+        .select(['reviewer_did as did', (eb) => eb.fn.max('indexed_at').as('at')])
+        .where('community_did', '=', communityDid)
+        .where('reviewer_did', 'in', dids)
+        .groupBy('reviewer_did')
+        .execute(),
+      this.db
+        .selectFrom('proposal')
+        .select(['proposer_did as did', (eb) => eb.fn.max('indexed_at').as('at')])
+        .where('community_did', '=', communityDid)
+        .where('proposer_did', 'in', dids)
+        .groupBy('proposer_did')
+        .execute(),
+      this.db
+        .selectFrom('vote')
+        .innerJoin('proposal', 'proposal.uri', 'vote.proposal_uri')
+        .select(['vote.voter_did as did', (eb) => eb.fn.max('vote.indexed_at').as('at')])
+        .where('proposal.community_did', '=', communityDid)
+        .where('vote.voter_did', 'in', dids)
+        .groupBy('vote.voter_did')
+        .execute(),
+    ])
+    const last = new Map<string, Date>()
+    for (const { did, at } of [...verdicts, ...proposals, ...votes]) {
+      const when = new Date(at as Date)
+      if (!last.has(did) || last.get(did)! < when) last.set(did, when)
+    }
+    return members.map((m) =>
+      compact({
+        actor: actors.get(m.member_did)!,
+        status: m.active ? 'active' : 'invited',
+        grant: { uri: m.uri, cid: m.cid },
+        since: m.created_at,
+        lastActiveAt: last.has(m.member_did) ? iso(last.get(m.member_did)!) : undefined,
+      }) as ModeratorView,
+    )
+  }
+
+  async bans(communityDid: string): Promise<BanView[]> {
+    const rows = await this.db.selectFrom('ban').selectAll().where('community_did', '=', communityDid).orderBy('indexed_at', 'desc').execute()
+    const actors = await this.actors(rows.flatMap((r) => [r.subject_did, r.moderator_did]))
+    return rows.map(
+      (r) =>
+        ({
+          uri: r.uri,
+          cid: r.cid,
+          subject: actors.get(r.subject_did)!,
+          moderator: actors.get(r.moderator_did)!,
+          reason: r.reason,
+          indexedAt: iso(r.indexed_at),
+        }) as BanView,
+    )
   }
 
   game(row: Row<'game'>): GameView {
@@ -95,8 +216,9 @@ export class Views {
       this.actors(dids),
     ])
     const rulesets = await this.currentRulesets(categories.map((c) => c.uri))
+    const frozen = await freezeIntervals(this.db, dids)
     return communities.map((community) => ({
-      community: this.community(community, actors.get(community.did)?.handle),
+      community: this.community(community, actors.get(community.did)?.handle, isFrozen(frozen.get(community.did))),
       games: games
         .filter((g) => g.community_did === community.did)
         .map((game) => ({

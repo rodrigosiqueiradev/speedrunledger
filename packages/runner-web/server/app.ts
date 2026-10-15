@@ -88,6 +88,41 @@ export class RunnerWeb {
       res.json({})
     })
 
+    /** Asks the sysadmins for a community; founders are given as handles or DIDs. */
+    app.post('/api/requests', this.auth.requireUser, async (req, res) => {
+      const body = req.body as { game?: Record<string, unknown>; founders?: unknown; note?: unknown }
+      const names = (Array.isArray(body.founders) ? body.founders : []).map((f) => String(f).trim().replace(/^@/, '')).filter(Boolean)
+      if (names.length === 0) {
+        res.status(400).json({ error: 'InvalidRequest', message: 'Name at least one founding moderator' })
+        return
+      }
+      const founders: string[] = []
+      for (const name of names) {
+        try {
+          founders.push((await this.auth.client.identityResolver.resolve(name)).did)
+        } catch {
+          res.status(400).json({ error: 'UnknownFounder', message: `Could not find the account ${name}` })
+          return
+        }
+      }
+      const { request } = ledger.community
+      const note = String(body.note ?? '').trim()
+      const result = request.$safeParse({
+        $type: request.$type,
+        game: body.game,
+        founders: [...new Set(founders)],
+        note: note || undefined,
+        createdAt: new Date().toISOString(),
+      })
+      if (!result.success) {
+        res.status(400).json({ error: 'InvalidRequest', message: String(result.reason) })
+        return
+      }
+      const { $type: _type, ...record } = result.value
+      const out = await clientOf(res).create(request, record)
+      res.json({ uri: out.uri, cid: out.cid })
+    })
+
     app.get('/xrpc/:nsid', xrpcProxy(this.config.appviewUrl))
     await serveClient(app, { root, viteDev: this.config.viteDev })
     return app

@@ -229,3 +229,10 @@ spec:
             secretKeyRef:
               name: ledger-dev
               key: communityAdminToken
+        - name: PDS_URL
+          value: http://localhost:2583
+        - name: PDS_ADMIN_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: ledger-dev
+              key: pdsAdminPassword

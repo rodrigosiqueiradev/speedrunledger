@@ -9,3 +9,15 @@ table.queue { width: 100%; border-collapse: collapse; background: var(--surface)
 @media (max-width: 600px) {
   .queue th:nth-child(4), .queue td:nth-child(4) { display: none; }
 }
+.actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.button.secondary, button.secondary { background: var(--surface); color: var(--text); border: 1px solid var(--line); }
+.tabs a.tab { background: var(--surface); color: var(--text); border: 1px solid var(--line); border-radius: 6px; padding: 6px 12px; font-weight: 500; text-decoration: none; }
+.tabs a.tab[aria-selected='true'] { background: var(--text); color: var(--bg); }
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; margin: 12px 0; }
+.panel h3 { margin: 0 0 8px; font-size: 1rem; }
+.proposal .tally { font-variant-numeric: tabular-nums; }
+.proposal .votes { list-style: none; padding: 0; margin: 8px 0 0; font-size: 0.9rem; }
+.proposal .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-top: 10px; }
+.inline-form { display: flex; gap: 8px; flex-wrap: wrap; align-items: flex-end; }
+.inline-form label { display: flex; flex-direction: column; gap: 4px; font-weight: 600; font-size: 0.9rem; }
+.danger-inline { background: var(--bad); }

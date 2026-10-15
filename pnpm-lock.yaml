@@ -21,6 +21,31 @@ importers:
         specifier: 5.0.4
         version: 5.0.4(@types/node@22.20.5)(vite@8.3.4(@types/node@22.20.5)(esbuild@0.28.2)(tsx@4.23.15))
 
+  packages/admin-cli:
+    dependencies:
+      '@atproto/api':
+        specifier: 0.27.0
+        version: 0.27.0
+    devDependencies:
+      '@speedrunledger/appview':
+        specifier: workspace:*
+        version: link:../appview
+      '@speedrunledger/community-service':
+        specifier: workspace:*
+        version: link:../community-service
+      '@speedrunledger/indexer':
+        specifier: workspace:*
+        version: link:../indexer
+      '@speedrunledger/lexicon':
+        specifier: workspace:*
+        version: link:../lexicon
+      '@speedrunledger/testkit':
+        specifier: workspace:*
+        version: link:../testkit
+      pino:
+        specifier: 10.4.0
+        version: 10.4.0
+
   packages/appview:
     dependencies:
       '@atproto/lex':
@@ -54,6 +79,9 @@ importers:
       '@atproto/api':
         specifier: 0.27.0
         version: 0.27.0
+      '@atproto/common-web':
+        specifier: 0.5.14
+        version: 0.5.14
       '@atproto/lex':
         specifier: 0.3.14
         version: 0.3.14
@@ -144,6 +172,9 @@ importers:
 
   packages/moderator-web:
     dependencies:
+      '@atproto/lex':
+        specifier: 0.3.14
+        version: 0.3.14
       '@atproto/oauth-client-node':
         specifier: 0.5.9
         version: 0.5.9

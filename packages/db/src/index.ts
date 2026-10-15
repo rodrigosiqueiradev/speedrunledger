@@ -5,8 +5,10 @@ import * as init from './migrations/001-init.js'
 import * as boards from './migrations/002-boards.js'
 import * as oauth from './migrations/003-oauth.js'
 import * as communitySessions from './migrations/004-community-sessions.js'
+import * as governance from './migrations/005-governance.js'
 import type { DatabaseSchema } from './schema.js'
 
+export * from './governance.js'
 export * from './schema.js'
 
 export type Database = Kysely<DatabaseSchema>
@@ -27,6 +29,7 @@ const migrations: Record<string, Migration> = {
   '002-boards': boards,
   '003-oauth': oauth,
   '004-community-sessions': communitySessions,
+  '005-governance': governance,
 }
 
 class StaticMigrationProvider implements MigrationProvider {

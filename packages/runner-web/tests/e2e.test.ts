@@ -11,6 +11,7 @@ import {
   putRecord,
   setupCommunity,
   type TestCommunity,
+  waitFor,
 } from '@speedrunledger/testkit'
 import { chromiumPath, freePort, signInWithOAuth } from '@speedrunledger/testkit/browser'
 import { type Browser, chromium } from 'playwright-core'
@@ -145,6 +146,36 @@ describe('runner app', () => {
     await page.getByText('Retimed from the start of the video').waitFor()
     await page.goto(boardUrl)
     await page.getByText('No verified runs yet.').waitFor()
+    await page.close()
+  }, 120_000)
+
+  it('asks the sysadmins for a community, naming founders by handle', async () => {
+    const runner = await createAccount(env, 'rq')
+    const friend = await createAccount(env, 'rf')
+    const page = await browser.newPage()
+    await signInWithOAuth(page, { appUrl: runnerWeb.config.publicUrl, pdsUrl: env.pdsUrl, handle: runner.handle, password: runner.password })
+    await page.goto(`${runnerWeb.config.publicUrl}/request`)
+    await page.fill('input[name=title]', 'Celeste')
+    await page.fill('input[name=year]', '2018')
+    await page.fill('input[name=platforms]', 'PC, Switch')
+    await page.fill('input[name=founders]', `${runner.handle}, @${friend.handle}`)
+    await page.fill('textarea[name=note]', 'We run the Celeste Discord')
+    await page.click('button:has-text("Send request")')
+    await page.getByText('Request sent').waitFor()
+    await page.locator('.requests li', { hasText: 'Waiting for a sysadmin' }).waitFor({ timeout: 15_000 })
+
+    const { requests } = await waitFor(async () => {
+      const url = new URL('/xrpc/app.speedrunledger-prototype.listCommunityRequests', appview.url)
+      url.searchParams.set('requester', runner.did)
+      const res = (await (await fetch(url)).json()) as any
+      return res.requests?.length ? res : undefined
+    })
+    expect(requests[0]).toMatchObject({
+      game: { title: 'Celeste', releaseYear: 2018, platforms: ['PC', 'Switch'] },
+      founders: [{ did: runner.did }, { did: friend.did }],
+      note: 'We run the Celeste Discord',
+      status: 'pending',
+    })
     await page.close()
   }, 120_000)
 })

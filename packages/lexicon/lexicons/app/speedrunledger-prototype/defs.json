@@ -39,6 +39,10 @@
         },
         "description": {
           "type": "string"
+        },
+        "frozen": {
+          "type": "boolean",
+          "description": "Frozen by a sysadmin: boards stay visible, but no verdicts, votes or changes are accepted."
         }
       }
     },
@@ -452,6 +456,282 @@
         "grant": {
           "type": "ref",
           "ref": "com.atproto.repo.strongRef"
+        }
+      }
+    },
+    "proposalView": {
+      "type": "object",
+      "required": [
+        "uri",
+        "cid",
+        "community",
+        "proposer",
+        "actionType",
+        "action",
+        "reason",
+        "status",
+        "executed",
+        "electorateSize",
+        "needed",
+        "yes",
+        "no",
+        "votes",
+        "problems",
+        "createdAt",
+        "expiresAt",
+        "indexedAt"
+      ],
+      "properties": {
+        "uri": {
+          "type": "string",
+          "format": "at-uri"
+        },
+        "cid": {
+          "type": "string",
+          "format": "cid"
+        },
+        "community": {
+          "type": "string",
+          "format": "did"
+        },
+        "proposer": {
+          "type": "ref",
+          "ref": "#actorView"
+        },
+        "actionType": {
+          "type": "string",
+          "knownValues": [
+            "invite",
+            "kick",
+            "putRecord",
+            "liftBan",
+            "migrate"
+          ]
+        },
+        "action": {
+          "type": "unknown",
+          "description": "The proposal's action as written."
+        },
+        "reason": {
+          "type": "string"
+        },
+        "status": {
+          "type": "string",
+          "knownValues": [
+            "open",
+            "passed",
+            "failed",
+            "expired",
+            "invalid"
+          ]
+        },
+        "executed": {
+          "type": "boolean",
+          "description": "The community service has written the result of a passed proposal."
+        },
+        "result": {
+          "type": "string",
+          "format": "at-uri",
+          "description": "The record the community service wrote, when there is one."
+        },
+        "electorateSize": {
+          "type": "integer",
+          "description": "Active moderators when the proposal was indexed, minus the target of a kick."
+        },
+        "needed": {
+          "type": "integer",
+          "description": "Yes votes needed to pass: more than half the electorate."
+        },
+        "yes": {
+          "type": "integer"
+        },
+        "no": {
+          "type": "integer"
+        },
+        "votes": {
+          "type": "array",
+          "items": {
+            "type": "ref",
+            "ref": "#voteView"
+          }
+        },
+        "problems": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Why an invalid proposal does not count."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "datetime"
+        },
+        "expiresAt": {
+          "type": "string",
+          "format": "datetime"
+        },
+        "indexedAt": {
+          "type": "string",
+          "format": "datetime"
+        }
+      }
+    },
+    "voteView": {
+      "type": "object",
+      "required": [
+        "voter",
+        "value",
+        "indexedAt"
+      ],
+      "properties": {
+        "voter": {
+          "type": "ref",
+          "ref": "#actorView"
+        },
+        "value": {
+          "type": "string",
+          "knownValues": [
+            "yes",
+            "no"
+          ]
+        },
+        "reason": {
+          "type": "string"
+        },
+        "indexedAt": {
+          "type": "string",
+          "format": "datetime"
+        }
+      }
+    },
+    "moderatorView": {
+      "type": "object",
+      "required": [
+        "actor",
+        "status",
+        "grant",
+        "since"
+      ],
+      "properties": {
+        "actor": {
+          "type": "ref",
+          "ref": "#actorView"
+        },
+        "status": {
+          "type": "string",
+          "knownValues": [
+            "active",
+            "invited"
+          ]
+        },
+        "grant": {
+          "type": "ref",
+          "ref": "com.atproto.repo.strongRef"
+        },
+        "since": {
+          "type": "string",
+          "format": "datetime"
+        },
+        "lastActiveAt": {
+          "type": "string",
+          "format": "datetime",
+          "description": "Newest verdict, proposal or vote by this moderator in this community."
+        }
+      }
+    },
+    "banView": {
+      "type": "object",
+      "required": [
+        "uri",
+        "cid",
+        "subject",
+        "moderator",
+        "reason",
+        "indexedAt"
+      ],
+      "properties": {
+        "uri": {
+          "type": "string",
+          "format": "at-uri"
+        },
+        "cid": {
+          "type": "string",
+          "format": "cid"
+        },
+        "subject": {
+          "type": "ref",
+          "ref": "#actorView"
+        },
+        "moderator": {
+          "type": "ref",
+          "ref": "#actorView"
+        },
+        "reason": {
+          "type": "string"
+        },
+        "indexedAt": {
+          "type": "string",
+          "format": "datetime"
+        }
+      }
+    },
+    "requestView": {
+      "type": "object",
+      "required": [
+        "uri",
+        "cid",
+        "requester",
+        "game",
+        "founders",
+        "status",
+        "indexedAt"
+      ],
+      "properties": {
+        "uri": {
+          "type": "string",
+          "format": "at-uri"
+        },
+        "cid": {
+          "type": "string",
+          "format": "cid"
+        },
+        "requester": {
+          "type": "ref",
+          "ref": "#actorView"
+        },
+        "game": {
+          "type": "ref",
+          "ref": "app.speedrunledger-prototype.community.request#gameInfo"
+        },
+        "founders": {
+          "type": "array",
+          "items": {
+            "type": "ref",
+            "ref": "#actorView"
+          }
+        },
+        "note": {
+          "type": "string"
+        },
+        "status": {
+          "type": "string",
+          "knownValues": [
+            "pending",
+            "approved",
+            "denied"
+          ]
+        },
+        "denialReason": {
+          "type": "string"
+        },
+        "community": {
+          "type": "string",
+          "format": "did",
+          "description": "The community created from this request."
+        },
+        "indexedAt": {
+          "type": "string",
+          "format": "datetime"
         }
       }
     }

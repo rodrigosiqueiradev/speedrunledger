@@ -1,0 +1,48 @@
+{
+  "lexicon": 1,
+  "id": "app.speedrunledger-prototype.community.intervention",
+  "defs": {
+    "main": {
+      "type": "record",
+      "key": "tid",
+      "description": "A sysadmin's intervention in a community, written into the community's repo so it is public: freezing or unfreezing the community, or appointing a moderator when none is active. Only interventions naming a listed sysadmin count.",
+      "record": {
+        "type": "object",
+        "required": [
+          "action",
+          "reason",
+          "sysadmin",
+          "createdAt"
+        ],
+        "properties": {
+          "action": {
+            "type": "string",
+            "knownValues": [
+              "freeze",
+              "unfreeze",
+              "appoint"
+            ]
+          },
+          "subject": {
+            "type": "string",
+            "format": "did",
+            "description": "The appointed moderator, for appoint."
+          },
+          "reason": {
+            "type": "string",
+            "maxLength": 10000,
+            "maxGraphemes": 1000
+          },
+          "sysadmin": {
+            "type": "string",
+            "format": "did"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "datetime"
+          }
+        }
+      }
+    }
+  }
+}

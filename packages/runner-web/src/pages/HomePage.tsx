@@ -13,7 +13,13 @@ export function HomePage() {
   if (error) return <p className="error">{error}</p>
   if (!communities) return <p className="muted">Loading games…</p>
   const games = communities.flatMap((c) => c.games.map((g) => ({ ...g, community: c.community })))
-  if (games.length === 0) return <p className="muted">No communities yet.</p>
+  if (games.length === 0) {
+    return (
+      <p className="muted">
+        No communities yet. <Link href="/request">Ask for one</Link>.
+      </p>
+    )
+  }
 
   return (
     <section>
@@ -40,6 +46,9 @@ export function HomePage() {
           </article>
         ))}
       </div>
+      <p className="muted small">
+        Missing a game? <Link href="/request">Ask the sysadmins for a community</Link> and name its founding moderators.
+      </p>
     </section>
   )
 }

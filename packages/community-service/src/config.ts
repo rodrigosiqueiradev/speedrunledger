@@ -8,6 +8,12 @@ export interface CommunityServiceConfig {
   /** Bearer token for the admin endpoints the admin CLI calls. */
   adminToken: string
   plcUrl?: string
+  /** The PDS new community and platform accounts are created on. */
+  pdsUrl?: string
+  /** The PDS admin password, for invite codes when the PDS requires them. */
+  pdsAdminPassword?: string
+  /** How often to look for passed proposals to carry out; 0 turns the executor off. */
+  executorIntervalMs: number
   /** Allows plain-http DID and PDS lookups. */
   devMode: boolean
 }
@@ -29,6 +35,9 @@ export function readConfig(env: NodeJS.ProcessEnv = process.env): CommunityServi
     secretKey,
     adminToken: need('COMMUNITY_ADMIN_TOKEN'),
     plcUrl,
+    pdsUrl: env.PDS_URL,
+    pdsAdminPassword: env.PDS_ADMIN_PASSWORD,
+    executorIntervalMs: Number(env.EXECUTOR_INTERVAL_MS ?? 2000),
     devMode: env.DEV_MODE ? env.DEV_MODE === 'true' : (plcUrl?.startsWith('http:') ?? false),
   }
 }

@@ -179,6 +179,12 @@ export interface ProposalTable {
   expires_at: string
   created_at: string
   indexed_at: Timestamp
+  /** When the indexer first saw this proposal; its electorate was fixed then. */
+  first_indexed_at: ColumnType<Date, Date | string, Date | string>
+  /** DIDs that may vote: active moderators when first indexed, minus a kick's target. */
+  electorate: Json<string[]>
+  /** Why the proposal does not count (empty when valid). */
+  problems: Json<string[]>
 }
 
 export interface VoteTable {
@@ -258,12 +264,50 @@ export interface CommunityCredentialTable {
   pds_url: string
   /** The account's (app) password, AES-256-GCM encrypted with the service's key. */
   secret: string
+  /** 'community', or 'platform' for the platform account that lists sysadmins. */
+  kind: ColumnType<string, string | undefined, string>
   created_at: Timestamp
+  updated_at: Timestamp
+}
+
+export interface InterventionTable {
+  uri: string
+  cid: string
+  community_did: string
+  action: string
+  subject_did: string | null
+  reason: string
+  sysadmin_did: string
+  created_at: string
+  indexed_at: Timestamp
+}
+
+export interface RequestDenialTable {
+  uri: string
+  cid: string
+  /** The repo the record lives in; only the platform account's records count. */
+  owner_did: string
+  request_uri: string
+  reason: string
+  sysadmin_did: string
+  indexed_at: Timestamp
+}
+
+/** The community service's progress carrying out passed proposals. */
+export interface ProposalExecutionTable {
+  proposal_uri: string
+  community_did: string
+  result_uri: string | null
+  error: string | null
+  executed_at: Timestamp | null
   updated_at: Timestamp
 }
 
 export interface DatabaseSchema {
   community_credential: CommunityCredentialTable
+  intervention: InterventionTable
+  request_denial: RequestDenialTable
+  proposal_execution: ProposalExecutionTable
   oauth_state: OAuthStateTable
   oauth_session: OAuthSessionTable
   board_entry: BoardEntryTable

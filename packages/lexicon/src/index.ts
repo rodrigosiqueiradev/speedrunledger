@@ -14,7 +14,9 @@ import type * as LexCommunityMemberAccept from './lexicons/app/speedrunledger-pr
 import type * as LexCommunityProposal from './lexicons/app/speedrunledger-prototype/community/proposal.js'
 import type * as LexCommunityVote from './lexicons/app/speedrunledger-prototype/community/vote.js'
 import type * as LexCommunityBan from './lexicons/app/speedrunledger-prototype/community/ban.js'
+import type * as LexCommunityIntervention from './lexicons/app/speedrunledger-prototype/community/intervention.js'
 import type * as LexPlatformSysadmin from './lexicons/app/speedrunledger-prototype/platform/sysadmin.js'
+import type * as LexPlatformRequestDenial from './lexicons/app/speedrunledger-prototype/platform/requestDenial.js'
 
 /** Generated schemas for every app.speedrunledger-prototype.* lexicon. */
 export const ledger = ledgerLexicons
@@ -36,7 +38,9 @@ export const ids = {
   communityProposal: ledger.community.proposal.$nsid,
   communityVote: ledger.community.vote.$nsid,
   communityBan: ledger.community.ban.$nsid,
+  communityIntervention: ledger.community.intervention.$nsid,
   platformSysadmin: ledger.platform.sysadmin.$nsid,
+  platformRequestDenial: ledger.platform.requestDenial.$nsid,
 } as const
 
 export type Collection = (typeof ids)[keyof typeof ids]
@@ -56,7 +60,9 @@ export const recordSchemas = {
   [ids.communityProposal]: ledger.community.proposal,
   [ids.communityVote]: ledger.community.vote,
   [ids.communityBan]: ledger.community.ban,
+  [ids.communityIntervention]: ledger.community.intervention,
   [ids.platformSysadmin]: ledger.platform.sysadmin,
+  [ids.platformRequestDenial]: ledger.platform.requestDenial,
 } as const
 
 export const collections = Object.keys(recordSchemas) as Collection[]
@@ -77,7 +83,9 @@ export type CommunityMemberAcceptRecord = LexCommunityMemberAccept.Main
 export type CommunityProposalRecord = LexCommunityProposal.Main
 export type CommunityVoteRecord = LexCommunityVote.Main
 export type CommunityBanRecord = LexCommunityBan.Main
+export type CommunityInterventionRecord = LexCommunityIntervention.Main
 export type PlatformSysadminRecord = LexPlatformSysadmin.Main
+export type PlatformRequestDenialRecord = LexPlatformRequestDenial.Main
 
 export type RunTimes = LexRun.Times
 export type TimingMethod = 'realTime' | 'realTimeNoLoads' | 'gameTime'
@@ -109,35 +117,26 @@ export function parseRecord<C extends Collection>(
   return { success: false, error: String(result.reason) }
 }
 
-export type RecordFor<C extends Collection> = C extends typeof ids.run
-  ? RunRecord
-  : C extends typeof ids.runParticipant
-    ? RunParticipantRecord
-    : C extends typeof ids.game
-      ? GameRecord
-      : C extends typeof ids.category
-        ? CategoryRecord
-        : C extends typeof ids.ruleset
-          ? RulesetRecord
-          : C extends typeof ids.verification
-            ? VerificationRecord
-            : C extends typeof ids.communityRequest
-              ? CommunityRequestRecord
-              : C extends typeof ids.communityProfile
-                ? CommunityProfileRecord
-                : C extends typeof ids.communityMember
-                  ? CommunityMemberRecord
-                  : C extends typeof ids.communityMemberAccept
-                    ? CommunityMemberAcceptRecord
-                    : C extends typeof ids.communityProposal
-                      ? CommunityProposalRecord
-                      : C extends typeof ids.communityVote
-                        ? CommunityVoteRecord
-                        : C extends typeof ids.communityBan
-                          ? CommunityBanRecord
-                          : C extends typeof ids.platformSysadmin
-                            ? PlatformSysadminRecord
-                            : never
+interface RecordTypes {
+  [ids.run]: RunRecord
+  [ids.runParticipant]: RunParticipantRecord
+  [ids.game]: GameRecord
+  [ids.category]: CategoryRecord
+  [ids.ruleset]: RulesetRecord
+  [ids.verification]: VerificationRecord
+  [ids.communityRequest]: CommunityRequestRecord
+  [ids.communityProfile]: CommunityProfileRecord
+  [ids.communityMember]: CommunityMemberRecord
+  [ids.communityMemberAccept]: CommunityMemberAcceptRecord
+  [ids.communityProposal]: CommunityProposalRecord
+  [ids.communityVote]: CommunityVoteRecord
+  [ids.communityBan]: CommunityBanRecord
+  [ids.communityIntervention]: CommunityInterventionRecord
+  [ids.platformSysadmin]: PlatformSysadminRecord
+  [ids.platformRequestDenial]: PlatformRequestDenialRecord
+}
+
+export type RecordFor<C extends Collection> = RecordTypes[C]
 
 /** AppView view types (app.speedrunledger-prototype.defs). */
 export type ActorView = LexDefs.ActorView
@@ -151,3 +150,8 @@ export type RunView = LexDefs.RunView
 export type BoardEntry = LexDefs.BoardEntry
 export type QueueItem = LexDefs.QueueItem
 export type MembershipView = LexDefs.MembershipView
+export type ProposalView = LexDefs.ProposalView
+export type VoteView = LexDefs.VoteView
+export type ModeratorView = LexDefs.ModeratorView
+export type BanView = LexDefs.BanView
+export type RequestView = LexDefs.RequestView

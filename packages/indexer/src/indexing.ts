@@ -11,6 +11,7 @@ import {
 import { sql, type Transaction } from 'kysely'
 import type { Logger } from 'pino'
 import { rebuildCategoryBoards } from './boards.js'
+import { checkProposal } from './proposal-check.js'
 import { checkRun } from './run-check.js'
 
 export interface IndexerOptions {
@@ -371,7 +372,25 @@ const handlers: Handlers = {
         created_at: record.createdAt,
         indexed_at: indexedAt,
       }
-      await tx.insertInto('proposal').values(row).onConflict((oc) => oc.column('uri').doUpdateSet(row)).execute()
+      // The electorate is fixed the first time the proposal is seen; an edit re-checks it.
+      const previous = await tx
+        .selectFrom('proposal')
+        .select(['electorate', 'first_indexed_at'])
+        .where('uri', '=', row.uri)
+        .executeTakeFirst()
+      const firstIndexedAt = previous?.first_indexed_at ?? indexedAt
+      const check = await checkProposal(
+        tx,
+        { ...row, action: lexToJson(record.action as LexValue) as Record<string, unknown> },
+        firstIndexedAt,
+        previous?.electorate,
+      )
+      const full = { ...row, electorate: json(check.electorate), problems: json(check.problems) }
+      await tx
+        .insertInto('proposal')
+        .values({ ...full, first_indexed_at: firstIndexedAt })
+        .onConflict((oc) => oc.column('uri').doUpdateSet(full))
+        .execute()
     },
     async remove(tx, uri) {
       await tx.deleteFrom('proposal').where('uri', '=', uri).execute()
@@ -415,6 +434,46 @@ const handlers: Handlers = {
     async remove(tx, uri) {
       const row = await tx.deleteFrom('ban').where('uri', '=', uri).returning('community_did').executeTakeFirst()
       if (row) return (indexer) => indexer.rebuildBoards({ communityDid: row.community_did })
+    },
+  },
+
+  [ids.communityIntervention]: {
+    async upsert(tx, { uri, cid, did, record, indexedAt }) {
+      if (record.action === 'appoint' && !record.subject) invalid('an appointment must name its subject')
+      const row = {
+        uri: uri.toString(),
+        cid,
+        community_did: did,
+        action: record.action,
+        subject_did: record.subject ?? null,
+        reason: record.reason,
+        sysadmin_did: record.sysadmin,
+        created_at: record.createdAt,
+        indexed_at: indexedAt,
+      }
+      await tx.insertInto('intervention').values(row).onConflict((oc) => oc.column('uri').doUpdateSet(row)).execute()
+    },
+    async remove(tx, uri) {
+      await tx.deleteFrom('intervention').where('uri', '=', uri).execute()
+    },
+  },
+
+  [ids.platformRequestDenial]: {
+    async upsert(tx, { uri, cid, did, record, indexedAt }) {
+      refTo(record.request.uri, ids.communityRequest, 'request')
+      const row = {
+        uri: uri.toString(),
+        cid,
+        owner_did: did,
+        request_uri: record.request.uri,
+        reason: record.reason,
+        sysadmin_did: record.sysadmin,
+        indexed_at: indexedAt,
+      }
+      await tx.insertInto('request_denial').values(row).onConflict((oc) => oc.column('uri').doUpdateSet(row)).execute()
+    },
+    async remove(tx, uri) {
+      await tx.deleteFrom('request_denial').where('uri', '=', uri).execute()
     },
   },
 

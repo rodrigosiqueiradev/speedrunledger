@@ -57,6 +57,8 @@ beforeAll(async () => {
       secretKey: randomBytes(32),
       adminToken: 'e2e-admin',
       plcUrl: env.plcUrl,
+      pdsUrl: env.pdsUrl,
+      executorIntervalMs: 0,
       devMode: true,
     },
     pino({ level: 'silent' }),
@@ -79,7 +81,7 @@ beforeAll(async () => {
   browser = await chromium.launch({ executablePath: chromiumPath })
   await new Promise((resolve) => setTimeout(resolve, 500))
   community = await setupCommunity(env, { moderators: 2 })
-  await communityService.service.registerCommunity({
+  await communityService.service.registerAccount({
     identifier: community.account.handle,
     password: community.account.password,
     pdsUrl: env.pdsUrl,
@@ -110,7 +112,22 @@ async function reloadUntil(page: Page, url: string, ready: () => Promise<boolean
       { timeout: 20_000, interval: 500 },
     )
     .toBe(true)
+    .catch(async (err) => {
+      // Show what the page had, so a timeout says more than "expected false".
+      throw new Error(`${url} never got ready; it showed:\n${await page.locator('main').innerText().catch(() => '?')}`, { cause: err })
+    })
 }
+
+/** True once `text` shows up on the page, waiting a little for its data to load. */
+const shows = (page: Page, text: string) =>
+  page
+    .getByText(text)
+    .first()
+    .waitFor({ timeout: 3000 })
+    .then(
+      () => true,
+      () => false,
+    )
 
 describe('moderator app', () => {
   it('takes a submitted run through review to a ranked board entry', async () => {
@@ -122,9 +139,9 @@ describe('moderator app', () => {
     await signInWithOAuth(page, { appUrl: moderatorWeb.config.publicUrl, pdsUrl: env.pdsUrl, handle: mod.handle, password: mod.password })
 
     // Home lists the community once the moderator's acceptance is indexed.
-    await reloadUntil(page, moderatorWeb.config.publicUrl, async () => (await page.getByText('Review queue').count()) > 0)
+    await reloadUntil(page, moderatorWeb.config.publicUrl, () => shows(page, 'Review queue'))
     await page.click('text=Review queue')
-    await reloadUntil(page, page.url(), async () => (await page.getByText(runner.handle).count()) > 0)
+    await reloadUntil(page, page.url(), () => shows(page, runner.handle))
     expect(await page.locator('table.queue tbody tr').allInnerTexts()).toEqual([
       expect.stringMatching(new RegExp(`16 Star\\s+${runner.handle.replace(/\./g, '\\.')}\\s+15:05\\.120`)),
     ])
@@ -145,7 +162,7 @@ describe('moderator app', () => {
     expect(view.verdicts[0]).toMatchObject({ reviewer: { did: mod.did }, current: true })
 
     // The queue is empty now.
-    await reloadUntil(page, page.url(), async () => (await page.getByText('Nothing to review').count()) > 0)
+    await reloadUntil(page, page.url(), () => shows(page, 'Nothing to review'))
     await page.close()
   }, 120_000)
 
@@ -177,6 +194,87 @@ describe('moderator app', () => {
       return res.run?.status === 'changesRequested' ? res.run : undefined
     })
     expect(view.verdicts[0].reason).toBe('The timer is cut off at the end of the video')
+    await page.close()
+  }, 120_000)
+})
+
+describe('community management', () => {
+  const signIn = async (who: { handle: string; password: string }) => {
+    const page = await browser.newPage()
+    await signInWithOAuth(page, { appUrl: moderatorWeb.config.publicUrl, pdsUrl: env.pdsUrl, handle: who.handle, password: who.password })
+    return page
+  }
+  const manage = (tab: string) => `${moderatorWeb.config.publicUrl}/community?${new URLSearchParams({ did: community.account.did, tab })}`
+  const execute = () =>
+    fetch(new URL('/admin/proposals/execute', communityService.url), {
+      method: 'POST',
+      headers: { authorization: 'Bearer e2e-admin', 'content-type': 'application/json' },
+      body: '{}',
+    })
+
+  it('invites a moderator by vote, who then accepts', async () => {
+    const [a, b] = community.moderators.map((m) => m.account)
+    const newcomer = await createAccount(env, 'nm')
+
+    // A proposes the invite from the roster.
+    const pageA = await signIn(a)
+    await reloadUntil(pageA, manage('moderators'), () => shows(pageA, 'Invite a moderator'))
+    await pageA.fill('input[name=invitee]', newcomer.handle)
+    await pageA.fill('textarea', 'Has been verifying 16 Star runs informally for months')
+    await pageA.click('button:has-text("Propose invite")')
+    // Wait for the app to write it before reloading, or the reload cancels the request.
+    await pageA.locator('h2:has-text("Open"), form .error').first().waitFor()
+    expect(await pageA.locator('form .error').allInnerTexts()).toEqual([])
+    await reloadUntil(pageA, manage('proposals'), () => shows(pageA, `Invite @${newcomer.handle}`))
+    await pageA.getByText('1 yes, 0 no; 2 of 2 needed').waitFor()
+    await pageA.getByText('Your proposal counts as your yes vote.').waitFor()
+
+    // B votes yes; the proposal passes and the community service carries it out.
+    const pageB = await signIn(b)
+    await reloadUntil(pageB, manage('proposals'), () => shows(pageB, 'Vote yes'))
+    await pageB.fill('input[placeholder="Why (optional)"]', 'Agreed')
+    await Promise.all([pageB.waitForResponse((r) => r.url().endsWith('/api/votes') && r.ok()), pageB.click('button:has-text("Vote yes")')])
+    await reloadUntil(pageB, manage('proposals'), async () => {
+      await execute()
+      return shows(pageB, 'carried out')
+    })
+    await pageB.getByText(`voted yes: Agreed`).waitFor()
+
+    // The newcomer sees the invitation and accepts it.
+    const pageN = await signIn(newcomer)
+    await reloadUntil(pageN, moderatorWeb.config.publicUrl, () => shows(pageN, 'Accept invitation'))
+    await pageN.click('button:has-text("Accept invitation")')
+    await pageN.getByText('Accepted', { exact: true }).waitFor()
+    await reloadUntil(pageN, moderatorWeb.config.publicUrl, () => shows(pageN, 'Manage'))
+
+    // The roster counts them now, with no activity yet.
+    await reloadUntil(pageA, manage('moderators'), async () => (await pageA.locator('table.roster tbody tr').count()) === 3)
+    expect(await pageA.locator('table.roster tbody tr', { hasText: newcomer.handle }).innerText()).toMatch(/Active\s+never/)
+    await Promise.all([pageA.close(), pageB.close(), pageN.close()])
+  }, 180_000)
+
+  it('bans a runner and edits the game directly', async () => {
+    const mod = community.moderators[0].account
+    const cheater = await createAccount(env, 'ch')
+    const page = await signIn(mod)
+
+    await reloadUntil(page, manage('bans'), () => shows(page, 'Ban a runner'))
+    await page.fill('input[name=banned]', cheater.handle)
+    await page.fill('textarea', 'Spliced video')
+    await page.click('form button:has-text("Ban")')
+    await page.getByText(`Banned @${cheater.handle}`).waitFor()
+    await reloadUntil(page, manage('bans'), () => shows(page, 'Spliced video'))
+    expect(await page.getByText('Propose lifting').count()).toBe(1)
+
+    await page.goto(manage('games'))
+    await page.click('button:has-text("Edit game")')
+    await page.fill('input[name=platforms]', 'N64, Switch')
+    await page.click('button:has-text("Save game")')
+    const games = await waitFor(async () => {
+      const res = await xrpc('getCommunity', { community: community.account.did })
+      return res.community.games[0].game.platforms.includes('Switch') ? res.community.games : undefined
+    })
+    expect(games[0].game).toMatchObject({ title: 'Super Mario 64', platforms: ['N64', 'Switch'] })
     await page.close()
   }, 120_000)
 })

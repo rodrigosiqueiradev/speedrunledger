@@ -4,6 +4,7 @@ import { api } from './api.js'
 import { BoardPage } from './pages/BoardPage.js'
 import { HomePage } from './pages/HomePage.js'
 import { MyRunsPage } from './pages/MyRunsPage.js'
+import { RequestPage } from './pages/RequestPage.js'
 import { RunPage } from './pages/RunPage.js'
 import { SubmitPage } from './pages/SubmitPage.js'
 import { SignIn } from '@speedrunledger/web-ui'
@@ -50,6 +51,9 @@ function App() {
         />
       )
       break
+    case '/request':
+      page = <RequestPage me={me} />
+      break
     case '/me':
       page = <MyRunsPage me={me} />
       break
@@ -66,6 +70,7 @@ function App() {
         <nav>
           <Link href="/">Games</Link>
           {me && <Link href="/me">My runs</Link>}
+          <Link href="/request">Start a community</Link>
         </nav>
         <div className="account">
           {me === undefined ? null : me ? (

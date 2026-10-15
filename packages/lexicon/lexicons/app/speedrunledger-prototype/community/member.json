@@ -20,7 +20,7 @@
           "via": {
             "type": "ref",
             "ref": "com.atproto.repo.strongRef",
-            "description": "The community.request or passed community.proposal that justified this membership."
+            "description": "The community.request, passed community.proposal or community.intervention (appointment) that justified this membership."
           },
           "createdAt": {
             "type": "string",

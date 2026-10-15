@@ -1,3 +1,5 @@
+export { AdminService, type CreateCommunityInput, type GameInput } from './admin.js'
 export { type CommunityServiceConfig, readConfig } from './config.js'
-export { CommunityService, type VerdictInput, type VerdictStatus } from './service.js'
+export { ProposalExecutor, proposalRkey } from './executor.js'
 export { CommunityServiceServer } from './server.js'
+export { CommunityService, type GameUpdate, type VerdictInput, type VerdictStatus, type WriteOutput } from './service.js'
