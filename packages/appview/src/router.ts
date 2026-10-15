@@ -18,6 +18,20 @@ export function formatMs(ms: number): string {
 
 const invalid = (message: string) => new LexServerError(400, { error: 'InvalidRequest', message })
 
+/** listCommunities pages in (name, did) order; its cursor is the last row's name and DID. */
+const communityCursor = {
+  encode: (row: { name: string; did: string }) => Buffer.from(JSON.stringify([row.name, row.did])).toString('base64url'),
+  decode: (cursor: string): [string, string] => {
+    try {
+      const value: unknown = JSON.parse(Buffer.from(cursor, 'base64url').toString('utf8'))
+      if (Array.isArray(value) && value.length === 2 && value.every((v) => typeof v === 'string')) return value as [string, string]
+    } catch {
+      // fall through
+    }
+    throw invalid('Bad cursor')
+  },
+}
+
 /** XRPC queries of the AppView, served from the indexer's database. */
 export function createRouter(db: Database): LexRouter {
   const views = new Views(db)
@@ -30,13 +44,16 @@ export function createRouter(db: Database): LexRouter {
     .add(ledger.listCommunities, async ({ params }) => {
       const limit = params.limit ?? 50
       let query = db.selectFrom('community').selectAll().orderBy('name').orderBy('did').limit(limit + 1)
-      if (params.cursor) query = query.where('did', '>', params.cursor)
+      if (params.cursor) {
+        const [name, did] = communityCursor.decode(params.cursor)
+        query = query.where((eb) => eb(eb.refTuple('name', 'did'), '>', eb.tuple(name, did)))
+      }
       const rows = await query.execute()
       const page = rows.slice(0, limit)
       return {
         body: {
           communities: await views.communityDetails(page),
-          cursor: rows.length > limit ? page[page.length - 1].did : undefined,
+          cursor: rows.length > limit ? communityCursor.encode(page[page.length - 1]) : undefined,
         },
       }
     })

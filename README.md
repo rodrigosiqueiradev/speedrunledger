@@ -23,7 +23,7 @@ document. It is being built in the doc's order; see [Status](#status).
 | `packages/moderator-web` | The Moderator app: your communities and invitations, the review queue and verdicts (verify, retime, request changes, reject), flags for suspected cheating, proposals waiting for your vote, and community management: proposals and votes, the moderator roster, bans, games, categories and rules, and repo export. |
 | `packages/admin-cli` | `ledger-admin`, the sysadmins' command line, and the demo seed. |
 | `packages/testkit` | Helpers for integration tests against the local stack: accounts, records, a hand-built Super Mario 64 community. |
-| `infra/` | Podman images for the local PDS and PLC directory, and `dev.yaml` for `podman kube play`. |
+| `infra/` | Podman images for the local PDS and PLC directory; `deps.yaml` (PDS, PLC, Postgres) and `dev.yaml` (our services) for `podman kube play`. |
 | `scripts/` | `podman-build.mjs`, `dev-up.mjs`, `dev-down.mjs`, `ledger-admin.mjs`, `seed-demo.mjs`: the dev stack, in plain Node so they run on Windows too. |
 
 ## Requirements
@@ -70,12 +70,13 @@ pnpm infra:up      # builds images if needed, then starts the pods
 pnpm infra:down    # stop; `pnpm infra:down --volumes` also deletes data
 ```
 
-`infra:up` runs `podman kube play infra/dev.yaml`, which starts four pods on
-the host network:
+`infra:up` runs `podman kube play` on `infra/deps.yaml` and then
+`infra/dev.yaml`, which start five pods on the host network:
 
 - `ledger-pds`: a PDS on `localhost:2583` that accepts `.test` handles, and a
   PLC directory on `localhost:2582`, so DIDs and migrations work offline.
-- `ledger-data`: Postgres on `localhost:5433`, and the indexer.
+- `ledger-data`: Postgres on `localhost:5433`.
+- `ledger-indexer`: the indexer.
 - `ledger-web`: the AppView on `localhost:2584`, the Runner app on
   `http://127.0.0.1:2585` and the Moderator app on `http://127.0.0.1:2587`.
 - `ledger-community`: the community service on `localhost:2586`, alone in its
@@ -125,12 +126,15 @@ images, so the stack builds from npm and Docker Hub alone.
 ## Tests
 
 ```sh
-pnpm infra:up
+pnpm infra:up --deps   # only the PDS, PLC directory and Postgres
 pnpm test
 ```
 
-Unit tests need nothing. Integration tests run against the real PDS and PLC
-directory in the local stack, with no mocks; each test file gets its own
+Unit tests need nothing. Integration tests start our services from source and
+run them against the real PDS and PLC directory in the local stack, with no
+mocks, so they need only `--deps` (the full stack works too). CI
+(`.github/workflows/ci.yml`) does the same on every push to main and every pull
+request; each test file gets its own
 throwaway Postgres database. The Runner app's end-to-end test drives Chromium
 through the PDS's real sign-in and consent pages; it uses `playwright-core`
 and looks for the browser at `CHROMIUM_PATH` (default

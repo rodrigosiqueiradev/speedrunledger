@@ -64,6 +64,20 @@ const actionType = (action: { $type?: string }): string => {
   return hash === -1 ? type : type.slice(hash + 1)
 }
 
+/**
+ * The account a proposal is about. A lifted ban's runner is read from the ban
+ * while it exists and kept from then on, since carrying the proposal out deletes it.
+ */
+async function proposalSubject(tx: Tx, type: string, action: Record<string, unknown>, previous?: string | null): Promise<string | null> {
+  if (type === 'invite' || type === 'kick') return typeof action.subject === 'string' ? action.subject : null
+  if (type !== 'liftBan') return null
+  if (previous) return previous
+  const banUri = (action.ban as { uri?: unknown } | undefined)?.uri
+  if (typeof banUri !== 'string') return null
+  const ban = await tx.selectFrom('ban').select('subject_did').where('uri', '=', banUri).executeTakeFirst()
+  return ban?.subject_did ?? null
+}
+
 interface Ctx<C extends Collection> {
   uri: AtUri
   cid: string
@@ -185,6 +199,7 @@ const handlers: Handlers = {
         community_did: did,
         game_uri: record.game.uri,
         name: record.name,
+        description: record.description ?? null,
         kind: record.kind,
         sort: record.sort,
         primary_timing: record.primaryTiming,
@@ -375,7 +390,7 @@ const handlers: Handlers = {
       // The electorate is fixed the first time the proposal is seen; an edit re-checks it.
       const previous = await tx
         .selectFrom('proposal')
-        .select(['electorate', 'first_indexed_at'])
+        .select(['electorate', 'first_indexed_at', 'subject_did'])
         .where('uri', '=', row.uri)
         .executeTakeFirst()
       const firstIndexedAt = previous?.first_indexed_at ?? indexedAt
@@ -385,7 +400,12 @@ const handlers: Handlers = {
         firstIndexedAt,
         previous?.electorate,
       )
-      const full = { ...row, electorate: json(check.electorate), problems: json(check.problems) }
+      const full = {
+        ...row,
+        electorate: json(check.electorate),
+        problems: json(check.problems),
+        subject_did: await proposalSubject(tx, row.action_type, lexToJson(record.action as LexValue) as Record<string, unknown>, previous?.subject_did),
+      }
       await tx
         .insertInto('proposal')
         .values({ ...full, first_indexed_at: firstIndexedAt })

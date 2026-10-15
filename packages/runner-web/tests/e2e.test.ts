@@ -9,6 +9,7 @@ import {
   loadDevEnv,
   now,
   putRecord,
+  runRecord,
   setupCommunity,
   type TestCommunity,
   waitFor,
@@ -230,5 +231,148 @@ describe('runner app', () => {
     await page.waitForTimeout(1000)
     expect(await page.locator('nav .badge').count()).toBe(0)
     await page.close()
+  }, 120_000)
+
+  it('warns on a first submission that runs are public, and only then', async () => {
+    const runner = await createAccount(env, 'fs')
+    const page = await browser.newPage()
+    await signInWithOAuth(page, { appUrl: runnerWeb.config.publicUrl, pdsUrl: env.pdsUrl, handle: runner.handle, password: runner.password })
+    const submitUrl = `${runnerWeb.config.publicUrl}/submit?category=${encodeURIComponent(community.categories.seventyStar.uri)}`
+    await expect
+      .poll(
+        async () => {
+          await page.goto(submitUrl)
+          await page.locator('h1, .error').first().waitFor()
+          return page.locator('h1').count()
+        },
+        { timeout: 20_000, interval: 500 },
+      )
+      .toBe(1)
+    await page.getByText('Runs are public.').waitFor()
+    await page.fill('input[name=realTime]', '50:12.000')
+    await page.fill('input[name=video]', 'https://www.youtube.com/watch?v=dQw4w9WgXcQ')
+    await page.click('button:has-text("Submit run")')
+    await page.getByText('Please confirm you understand runs are public').waitFor()
+    expect(new URL(page.url()).pathname).toBe('/submit')
+    expect(await indexer.indexer.db.selectFrom('run').select('uri').where('runner_did', '=', runner.did).execute()).toEqual([])
+
+    await page.check('input[name=acknowledge]')
+    await page.click('button:has-text("Submit run")')
+    await page.waitForURL(/\/run\?/)
+    await page.getByText('Waiting for review').waitFor({ timeout: 20_000 })
+
+    // With a run on record, the next submission goes straight through.
+    await waitFor(async () => {
+      const url = new URL(`/xrpc/${ledger.getRunner.$nsid}?actor=${encodeURIComponent(runner.did)}`, appview.url)
+      const res = (await (await fetch(url)).json()) as any
+      return res.runs?.length === 1 ? res : undefined
+    })
+    await Promise.all([page.waitForResponse((r) => r.url().includes(ledger.getRunner.$nsid) && r.ok()), page.goto(submitUrl)])
+    await page.locator('h1:has-text("Submit a run")').waitFor()
+    await page.fill('input[name=realTime]', '49:59.000')
+    await page.fill('input[name=video]', 'https://www.youtube.com/watch?v=dQw4w9WgXcQ')
+    expect(await page.getByText('Runs are public.').count()).toBe(0)
+    expect(await page.locator('input[name=acknowledge]').count()).toBe(0)
+    await page.click('button:has-text("Submit run")')
+    await page.waitForURL(/\/run\?/)
+    await page.getByText('Waiting for review').waitFor({ timeout: 20_000 })
+    await page.close()
+  }, 120_000)
+
+  it('deletes a verified run from the runner’s repo, the board and their runs', async () => {
+    const own = await setupCommunity(env)
+    const runner = await createAccount(env, 'dl')
+    const run = await putRecord(runner, ids.run, runRecord(own.categories.sixteenStar, { times: { realTimeMs: 901_000 } }))
+    await waitFor(() => indexer.indexer.db.selectFrom('run').select('uri').where('uri', '=', run.uri).executeTakeFirst())
+    await putRecord(own.account, ids.verification, {
+      subject: run,
+      status: 'verified',
+      reviewer: own.moderators[0].account.did,
+      createdAt: now(),
+    })
+    await waitFor(() => indexer.indexer.db.selectFrom('board_entry').select('run_uri').where('run_uri', '=', run.uri).executeTakeFirst())
+
+    const page = await browser.newPage()
+    await signInWithOAuth(page, { appUrl: runnerWeb.config.publicUrl, pdsUrl: env.pdsUrl, handle: runner.handle, password: runner.password })
+    await page.goto(`${runnerWeb.config.publicUrl}/run?${new URLSearchParams({ uri: run.uri })}`)
+    await page.locator('p:has(.status.verified)').getByText('Rank 1').waitFor()
+
+    // Cancelling the confirmation keeps the run.
+    page.once('dialog', (d) => {
+      expect(d.message()).toContain('Delete this run from your repo?')
+      void d.dismiss()
+    })
+    await page.click('button:has-text("Delete run")')
+    await page.waitForTimeout(500)
+    expect(new URL(page.url()).pathname).toBe('/run')
+
+    page.once('dialog', (d) => void d.accept())
+    await page.click('button:has-text("Delete run")')
+    await page.waitForURL(/\/me$/)
+
+    const records = new URL('/xrpc/com.atproto.repo.listRecords', env.pdsUrl)
+    records.search = new URLSearchParams({ repo: runner.did, collection: ids.run }).toString()
+    expect(((await (await fetch(records)).json()) as any).records).toEqual([])
+
+    await expect
+      .poll(
+        async () => {
+          await page.goto(`${runnerWeb.config.publicUrl}/me`)
+          await page.locator('h1, p.muted:not(:has-text("Loading"))').first().waitFor()
+          return page.getByText('You haven’t submitted any runs yet.').count()
+        },
+        { timeout: 20_000, interval: 500 },
+      )
+      .toBe(1)
+    await page.goto(`${runnerWeb.config.publicUrl}/board?category=${encodeURIComponent(own.categories.sixteenStar.uri)}`)
+    await page.getByText('No verified runs yet.').waitFor()
+    await page.close()
+  }, 120_000)
+
+  it('shows a board’s world record history, and tells the runners in their notifications', async () => {
+    const own = await setupCommunity(env)
+    const [first, second] = [await createAccount(env, 'wa'), await createAccount(env, 'wb')]
+    const reviewer = own.moderators[0].account.did
+    const verify = async (runner: typeof first, realTimeMs: number) => {
+      const run = await putRecord(runner, ids.run, runRecord(own.categories.sixteenStar, { times: { realTimeMs } }))
+      await waitFor(() => indexer.indexer.db.selectFrom('run').select('uri').where('uri', '=', run.uri).executeTakeFirst())
+      await putRecord(own.account, ids.verification, { subject: run, status: 'verified', reviewer, createdAt: now() })
+      await waitFor(() =>
+        indexer.indexer.db.selectFrom('world_record').select('id').where('run_uri', '=', run.uri).executeTakeFirst(),
+      )
+      return run
+    }
+    await verify(first, 900_000)
+    await verify(second, 890_500)
+
+    const page = await browser.newPage()
+    await page.goto(`${runnerWeb.config.publicUrl}/board?category=${encodeURIComponent(own.categories.sixteenStar.uri)}`)
+    await page.locator('table.board').waitFor()
+    await page.click('summary:has-text("World record history")')
+    const today = new Date().toISOString().slice(0, 10)
+    expect(await page.locator('.progression li').allInnerTexts()).toEqual([
+      `14:50.500 by @${second.handle} · ${today} (beat @${first.handle}’s 15:00.000)`,
+      `15:00.000 by @${first.handle} · ${today}`,
+    ])
+    await page.click('.progression li >> text=14:50.500')
+    await page.waitForURL(/\/run\?/)
+    await page.getByText(`14:50.500 by ${second.handle}`).waitFor()
+    await page.close()
+
+    // The dethroned runner has three unread notifications: the verdict, their record and its fall.
+    const firstPage = await browser.newPage()
+    await signInWithOAuth(firstPage, { appUrl: runnerWeb.config.publicUrl, pdsUrl: env.pdsUrl, handle: first.handle, password: first.password })
+    await firstPage.locator('nav .badge').waitFor()
+    expect(await firstPage.locator('nav .badge').innerText()).toBe('3')
+    await firstPage.click('nav >> text=Notifications')
+    await firstPage.locator('.notifications li').first().waitFor()
+    const items = await firstPage.locator('.notifications li.new strong').allInnerTexts()
+    expect(items.sort()).toEqual([`@${own.moderators[0].account.handle} verified your run`, `@${second.handle} beat your world record`, 'Your run is a new world record'].sort())
+    await firstPage.getByText('16 Star in 14:50.500').waitFor()
+    await firstPage.reload()
+    await firstPage.locator('.notifications li').first().waitFor()
+    expect(await firstPage.locator('.notifications li.new').count()).toBe(0)
+    expect(await firstPage.locator('nav .badge').count()).toBe(0)
+    await firstPage.close()
   }, 120_000)
 })

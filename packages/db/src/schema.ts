@@ -66,6 +66,7 @@ export interface CategoryTable {
   community_did: string
   game_uri: string
   name: string
+  description: string | null
   kind: string
   sort: string
   primary_timing: string
@@ -185,6 +186,8 @@ export interface ProposalTable {
   electorate: Json<string[]>
   /** Why the proposal does not count (empty when valid). */
   problems: Json<string[]>
+  /** The account it is about: an invite's or kick's subject, or a lifted ban's runner (kept after the ban is deleted). */
+  subject_did: string | null
 }
 
 export interface VoteTable {

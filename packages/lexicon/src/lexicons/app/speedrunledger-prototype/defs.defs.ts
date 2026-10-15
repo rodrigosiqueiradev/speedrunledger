@@ -461,6 +461,11 @@ type ProposalView = {
    * The proposal's action as written.
    */
   action: l.LexMap
+
+  /**
+   * The account the proposal is about: an invite's or kick's subject, or the runner whose ban it lifts (still named after the ban is deleted).
+   */
+  subject?: ActorView
   reason: string
   status: 'open' | 'passed' | 'failed' | 'expired' | 'invalid' | l.UnknownString
 
@@ -510,6 +515,9 @@ const proposalView = /*#__PURE__*/ l.typedObject<ProposalView>(
       knownValues: ['invite', 'kick', 'putRecord', 'liftBan', 'migrate']
     }>(),
     action: /*#__PURE__*/ l.lexMap(),
+    subject: /*#__PURE__*/ l.optional(
+      /*#__PURE__*/ l.ref<ActorView>((() => actorView) as any),
+    ),
     reason: /*#__PURE__*/ l.string(),
     status: /*#__PURE__*/ l.string<{
       knownValues: ['open', 'passed', 'failed', 'expired', 'invalid']

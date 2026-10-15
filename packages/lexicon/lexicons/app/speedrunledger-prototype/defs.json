@@ -528,6 +528,11 @@
           "type": "unknown",
           "description": "The proposal's action as written."
         },
+        "subject": {
+          "type": "ref",
+          "ref": "#actorView",
+          "description": "The account the proposal is about: an invite's or kick's subject, or the runner whose ban it lifts (still named after the ban is deleted)."
+        },
         "reason": {
           "type": "string"
         },

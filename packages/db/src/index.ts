@@ -8,6 +8,8 @@ import * as communitySessions from './migrations/004-community-sessions.js'
 import * as governance from './migrations/005-governance.js'
 import * as reach from './migrations/006-reach.js'
 import * as videoChecks from './migrations/007-video-checks.js'
+import * as categoryDescription from './migrations/008-category-description.js'
+import * as proposalSubject from './migrations/009-proposal-subject.js'
 import type { DatabaseSchema } from './schema.js'
 
 export * from './governance.js'
@@ -36,6 +38,8 @@ const migrations: Record<string, Migration> = {
   '005-governance': governance,
   '006-reach': reach,
   '007-video-checks': videoChecks,
+  '008-category-description': categoryDescription,
+  '009-proposal-subject': proposalSubject,
 }
 
 class StaticMigrationProvider implements MigrationProvider {

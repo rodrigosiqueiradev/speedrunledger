@@ -129,9 +129,12 @@ export class ProposalExecutor {
       }
       case 'putRecord': {
         const collection = action.collection === ids.category ? ledger.category : ledger.ruleset
-        const { $type: _t, ...record } = collection.$parse({ ...action.record, $type: collection.$type }) as Record<string, unknown>
+        // Validate, but write the record the moderators voted on: parsing adds lexicon defaults,
+        // which would change the record and its CID.
+        collection.$parse({ ...action.record, $type: collection.$type })
+        const { $type: _t, ...record } = action.record as Record<string, unknown>
         const rkey = action.collection === ids.category && action.rkey ? String(action.rkey) : proposalRkey(p)
-        const out = await client.put(collection as typeof ledger.category, record as never, { rkey })
+        const out = await this.service.putForeignRecord(p.community_did, collection.$type, rkey, record)
         return out.uri
       }
       case 'liftBan': {

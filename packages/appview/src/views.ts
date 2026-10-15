@@ -65,7 +65,11 @@ export class Views {
       tallyProposals(this.db, rows),
       this.db.selectFrom('proposal_execution').selectAll().where('proposal_uri', 'in', rows.map((r) => r.uri)).execute(),
     ])
-    const actors = await this.actors([...rows.map((r) => r.proposer_did), ...[...tallies.values()].flatMap((t) => t.votes.map((v) => v.voter))])
+    const actors = await this.actors([
+      ...rows.map((r) => r.proposer_did),
+      ...rows.flatMap((r) => (r.subject_did ? [r.subject_did] : [])),
+      ...[...tallies.values()].flatMap((t) => t.votes.map((v) => v.voter)),
+    ])
     const executed = new Map(executions.map((e) => [e.proposal_uri, e]))
     return rows.map((p) => {
       const tally = tallies.get(p.uri)!
@@ -77,6 +81,7 @@ export class Views {
         proposer: actors.get(p.proposer_did)!,
         actionType: p.action_type,
         action: p.action,
+        subject: p.subject_did ? actors.get(p.subject_did) : undefined,
         reason: p.reason,
         status: tally.status,
         executed: Boolean(execution?.executed_at),
@@ -179,6 +184,7 @@ export class Views {
       cid: row.cid,
       game: row.game_uri,
       name: row.name,
+      description: row.description ?? undefined,
       kind: row.kind,
       sort: row.sort,
       primaryTiming: row.primary_timing,

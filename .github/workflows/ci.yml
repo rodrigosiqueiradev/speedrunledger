@@ -1,0 +1,43 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    env:
+      # playwright-core drives the runner's preinstalled Chrome.
+      CHROMIUM_PATH: /usr/bin/google-chrome
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm typecheck
+      # The tests start our services from source; they need only the PDS, PLC and Postgres.
+      - name: Start the PDS, PLC directory and Postgres (Podman)
+        run: |
+          podman --version
+          pnpm infra:up --deps
+      - name: Test
+        run: pnpm -r --workspace-concurrency=1 test
+      - name: Stack logs
+        if: failure()
+        run: |
+          podman pod ps
+          for c in $(podman ps -a --format '{{.Names}}'); do
+            echo "::group::$c"
+            podman logs --tail 200 "$c" || true
+            echo "::endgroup::"
+          done

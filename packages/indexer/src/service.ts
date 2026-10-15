@@ -10,12 +10,17 @@ import { Indexer } from './indexing.js'
 const RETRY_DELAYS_MS = [100, 500, 1000, 2000, 5000]
 const BACKFILL_CONCURRENCY = 8
 
-/** Retries an operation until it succeeds; used for database writes so no event is ever skipped. */
-async function withRetry<T>(logger: Logger, what: string, fn: () => Promise<T>): Promise<T> {
+/**
+ * Retries an operation until it succeeds; used for database writes so no event
+ * is ever skipped. Gives up once `stopping` says the service is shutting down;
+ * the event is then not counted as done and is replayed on the next start.
+ */
+async function withRetry<T>(logger: Logger, what: string, fn: () => Promise<T>, stopping: () => boolean): Promise<T> {
   for (let attempt = 0; ; attempt++) {
     try {
       return await fn()
     } catch (err) {
+      if (stopping()) throw new Error(`indexer stopped while retrying ${what}`, { cause: err })
       const delay = RETRY_DELAYS_MS[Math.min(attempt, RETRY_DELAYS_MS.length - 1)]
       logger.warn({ err, attempt, what }, 'indexing failed, retrying')
       await new Promise((resolve) => setTimeout(resolve, delay))
@@ -23,10 +28,35 @@ async function withRetry<T>(logger: Logger, what: string, fn: () => Promise<T>):
   }
 }
 
+/**
+ * A MemoryRunner that can stop with work still queued. MemoryRunner.destroy
+ * clears its per-DID queues, and the tasks it clears never settle, so waiting
+ * for the runner afterwards hangs. Here a stopped runner instead runs each
+ * queued task as a no-op, so everything settles; skipped events are never
+ * marked done, so the saved cursor stays before them.
+ */
+class StoppableRunner extends MemoryRunner {
+  private stopped = false
+
+  override addTask(partitionId: string, task: () => Promise<void>): Promise<void> {
+    if (this.stopped) return Promise.resolve()
+    return super.addTask(partitionId, async () => {
+      if (!this.stopped) await task()
+    })
+  }
+
+  /** Skips everything still queued and waits for the tasks already running. */
+  stop(): Promise<void> {
+    this.stopped = true
+    return this.processAll()
+  }
+}
+
 export class IndexerService {
   readonly indexer: Indexer
   readonly idResolver: IdResolver
-  private runner?: MemoryRunner
+  private runner?: StoppableRunner
+  private stopping = false
   private firehose?: Firehose
   private firehoseDone?: Promise<void>
   private readonly cursorKey: string
@@ -54,6 +84,10 @@ export class IndexerService {
     await migrateToLatest(this.db)
   }
 
+  private retry<T>(what: string, fn: () => Promise<T>): Promise<T> {
+    return withRetry(this.logger, what, fn, () => this.stopping)
+  }
+
   async getCursor(): Promise<number | undefined> {
     const row = await this.db
       .selectFrom('subscription_state')
@@ -78,9 +112,12 @@ export class IndexerService {
    */
   async start(): Promise<void> {
     const startCursor = await this.getCursor()
-    const runner = new MemoryRunner({
+    const runner = new StoppableRunner({
       startCursor,
-      setCursor: (cursor) => withRetry(this.logger, 'save cursor', () => this.saveCursor(cursor)),
+      // Once stopping, events may be skipped; keep the saved cursor where it is so they are replayed.
+      setCursor: async (cursor) => {
+        if (!this.stopping) await this.retry('save cursor', () => this.saveCursor(cursor))
+      },
     })
     this.runner = runner
     this.firehose = new Firehose({
@@ -142,10 +179,10 @@ export class IndexerService {
       case 'create':
       case 'update':
       case 'delete': {
-        const known = await withRetry(this.logger, 'read repo rev', () => indexer.getRepoRev(evt.did))
+        const known = await this.retry('read repo rev', () => indexer.getRepoRev(evt.did))
         // Ops of one commit share a rev, so only strictly older revs are stale.
         if (known !== null && evt.rev < known) return
-        await withRetry(this.logger, `${evt.event} ${evt.uri}`, async () => {
+        await this.retry(`${evt.event} ${evt.uri}`, async () => {
           if (evt.event === 'delete') {
             await indexer.deleteRecord({ did: evt.did, collection: evt.collection, rkey: evt.rkey })
           } else {
@@ -164,12 +201,12 @@ export class IndexerService {
         return
       }
       case 'identity':
-        await withRetry(this.logger, `identity ${evt.did}`, () =>
+        await this.retry(`identity ${evt.did}`, () =>
           indexer.ensureActor(evt.did, { handle: evt.handle ?? null }),
         )
         return
       case 'account':
-        await withRetry(this.logger, `account ${evt.did}`, () =>
+        await this.retry(`account ${evt.did}`, () =>
           indexer.setAccountStatus(evt.did, evt.active, evt.status ?? null),
         )
         return
@@ -190,10 +227,17 @@ export class IndexerService {
     await this.runner?.processAll()
   }
 
+  /**
+   * Stops following the stream and closes the database. Events still queued
+   * are skipped, not processed, and the saved cursor stays before them, so
+   * the next start replays them.
+   */
   async destroy(): Promise<void> {
+    this.stopping = true
+    const settled = this.runner?.stop()
     await this.firehose?.destroy()
     await this.firehoseDone
-    await this.runner?.destroy()
+    await settled
     await this.db.destroy()
   }
 }

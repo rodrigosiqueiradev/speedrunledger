@@ -144,13 +144,15 @@ function Vote({ voter, value, reason }: { voter: { did: string; handle?: string 
 /** One line saying what a proposal would do. */
 function Describe({ p, detail, bans }: { p: ProposalView; detail: CommunityDetail; bans: BanView[] }) {
   const action = p.action as Record<string, any>
-  const subject = useHandle(typeof action.subject === 'string' ? action.subject : undefined)
+  // The AppView names who a proposal is about, even after a lifted ban's record is gone.
+  const subjectDid = p.subject?.did ?? (typeof action.subject === 'string' ? action.subject : undefined)
+  const subject = useHandle(subjectDid, p.subject?.handle)
   const categories = detail.games.flatMap((g) => g.categories)
   switch (p.actionType) {
     case 'invite':
-      return <>Invite @{subject ?? action.subject} as a moderator</>
+      return <>Invite @{subject ?? subjectDid} as a moderator</>
     case 'kick':
-      return <>Remove @{subject ?? action.subject} as a moderator</>
+      return <>Remove @{subject ?? subjectDid} as a moderator</>
     case 'putRecord': {
       const record = action.record ?? {}
       if (action.collection === CATEGORY) {
@@ -164,7 +166,8 @@ function Describe({ p, detail, bans }: { p: ProposalView; detail: CommunityDetai
     }
     case 'liftBan': {
       const ban = bans.find((b) => b.uri === action.ban?.uri)
-      return <>Lift the ban on @{ban ? (ban.subject.handle ?? ban.subject.did) : 'a runner'}</>
+      const runner = ban ? (ban.subject.handle ?? ban.subject.did) : (subject ?? subjectDid)
+      return <>Lift the ban on {runner ? `@${runner}` : 'a runner'}</>
     }
     case 'migrate':
       return <>Move the community to {action.pdsEndpoint}</>

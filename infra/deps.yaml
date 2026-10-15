@@ -1,0 +1,106 @@
+# Dependencies of the local stack: the PDS and PLC directory, and Postgres.
+# The tests need only these (they start our own services from source); `pnpm infra:up`
+# plays this file and then dev.yaml, `pnpm infra:up --deps` plays only this one.
+#
+# Pods share the host network (localhost:2582 PLC, localhost:2583 PDS, localhost:5433
+# Postgres). Secrets come from the `ledger-dev` podman secret that dev-up.mjs generates.
+apiVersion: v1
+kind: Pod
+metadata:
+  name: ledger-data
+  labels:
+    app: speedrunledger
+spec:
+  hostNetwork: true
+  restartPolicy: Always
+  containers:
+    - name: postgres
+      image: docker.io/library/postgres:16-alpine
+      args: ["-p", "5433"]
+      env:
+        - name: POSTGRES_USER
+          value: ledger
+        - name: POSTGRES_DB
+          value: ledger
+        - name: POSTGRES_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: ledger-dev
+              key: postgresPassword
+      volumeMounts:
+        - name: pg-data
+          mountPath: /var/lib/postgresql/data
+  volumes:
+    - name: pg-data
+      persistentVolumeClaim:
+        claimName: ledger-pg-data
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: ledger-pds
+  labels:
+    app: speedrunledger
+spec:
+  hostNetwork: true
+  restartPolicy: Always
+  containers:
+    - name: plc
+      image: localhost/speedrunledger/plc:dev
+      env:
+        - name: PLC_PORT
+          value: "2582"
+        - name: DATABASE_URL
+          valueFrom:
+            secretKeyRef:
+              name: ledger-dev
+              key: plcDatabaseUrl
+    - name: pds
+      image: localhost/speedrunledger/pds:dev
+      env:
+        - name: PDS_HOSTNAME
+          value: localhost
+        - name: PDS_PORT
+          value: "2583"
+        - name: PDS_DEV_MODE
+          value: "true"
+        - name: PDS_DATA_DIRECTORY
+          value: /pds
+        - name: PDS_BLOBSTORE_DISK_LOCATION
+          value: /pds/blocks
+        - name: PDS_DID_PLC_URL
+          value: http://localhost:2582
+        - name: PDS_SERVICE_HANDLE_DOMAINS
+          value: .test
+        - name: PDS_INVITE_REQUIRED
+          value: "false"
+        - name: PDS_CRAWLERS
+          value: ""
+        - name: PDS_RATE_LIMITS_ENABLED
+          value: "false"
+        - name: LOG_ENABLED
+          value: "true"
+        - name: LOG_LEVEL
+          value: warn
+        - name: PDS_JWT_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: ledger-dev
+              key: pdsJwtSecret
+        - name: PDS_ADMIN_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: ledger-dev
+              key: pdsAdminPassword
+        - name: PDS_PLC_ROTATION_KEY_K256_PRIVATE_KEY_HEX
+          valueFrom:
+            secretKeyRef:
+              name: ledger-dev
+              key: pdsRotationKeyHex
+      volumeMounts:
+        - name: pds-data
+          mountPath: /pds
+  volumes:
+    - name: pds-data
+      persistentVolumeClaim:
+        claimName: ledger-pds-data

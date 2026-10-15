@@ -4,9 +4,11 @@
 // First run generates random dev secrets into dev.env in LEDGER_DEV_DIR
 // (default ~/.local/share/speedrunledger) and stores them as the `ledger-dev`
 // podman secret. Delete that file and run `pnpm infra:down --volumes` to start over.
-// Pass --build to rebuild our own services' images after code changes.
+// Pass --build to rebuild our own services' images after code changes, and --deps to
+// start only the PDS, PLC directory and Postgres (all the tests need).
 import { randomBytes } from 'node:crypto'
 import { appendFileSync, chmodSync, existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { connect } from 'node:net'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { setTimeout as sleep } from 'node:timers/promises'
@@ -73,14 +75,16 @@ try {
 }
 
 // Images are built once; --build rebuilds our own services after code changes.
+const depsOnly = process.argv.includes('--deps')
 const rebuild = process.argv.includes('--build')
-for (const image of images) {
+for (const image of depsOnly ? ['plc', 'pds'] : images) {
   const own = image !== 'plc' && image !== 'pds'
   const exists = run('podman', ['image', 'exists', `localhost/speedrunledger/${image}:dev`], { allowFailure: true, quiet: true }) === 0
   if (!exists || (rebuild && own)) buildImage(image)
 }
 
-run('podman', ['kube', 'play', '--replace', 'infra/dev.yaml'])
+run('podman', ['kube', 'play', '--replace', 'infra/deps.yaml'])
+if (!depsOnly) run('podman', ['kube', 'play', '--replace', 'infra/dev.yaml'])
 
 async function waitFor(name, url) {
   for (let i = 0; i < 60; i++) {
@@ -93,8 +97,25 @@ async function waitFor(name, url) {
   console.error(`${name} did not come up; see: podman pod logs`)
   process.exit(1)
 }
+async function waitForPostgres() {
+  for (let i = 0; i < 60; i++) {
+    const open = await new Promise((resolve) => {
+      const socket = connect(5433, 'localhost', () => { socket.end(); resolve(true) })
+      socket.on('error', () => resolve(false))
+    })
+    if (open) { console.log('postgres is up'); return }
+    await sleep(1000)
+  }
+  console.error('postgres did not come up; see: podman pod logs ledger-data')
+  process.exit(1)
+}
+await waitForPostgres()
 await waitFor('plc', 'http://localhost:2582/_health')
 await waitFor('pds', 'http://localhost:2583/xrpc/_health')
+if (depsOnly) {
+  console.log(`PDS, PLC directory and Postgres are up; env for tools and tests: ${envFile}`)
+  process.exit(0)
+}
 await waitFor('appview', 'http://localhost:2584/xrpc/app.speedrunledger-prototype.listCommunities')
 await waitFor('community-service', 'http://localhost:2586/_health')
 await waitFor('runner-web', 'http://127.0.0.1:2585/')

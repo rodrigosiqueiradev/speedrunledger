@@ -45,6 +45,7 @@ export function BoardPage({ category, variables, me }: { category: string; varia
           </Link>
         )}
       </div>
+      {cat.description && <p className="muted category-description">{cat.description}</p>}
       {subVars.map((v) => (
         <div className="tabs" key={v.id} role="tablist" aria-label={v.name}>
           {v.values.map((value) => (
