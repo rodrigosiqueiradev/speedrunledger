@@ -1,5 +1,6 @@
 import type {
   BanView,
+  VideoProblemView,
   CategoryView,
   CommunityDetail,
   MembershipView,
@@ -51,6 +52,7 @@ export const api = {
     query<{ proposals: ProposalView[] }>('listProposals', { community, status, limit: '50' }),
   listModerators: (community: string) => query<{ moderators: ModeratorView[] }>('listModerators', { community }),
   listBans: (community: string) => query<{ bans: BanView[] }>('listBans', { community }),
+  listVideoProblems: (community: string) => query<{ problems: VideoProblemView[] }>('listVideoProblems', { community }),
   resolve: (actor: string) => call<{ did: string; handle: string }>(`/api/resolve?${new URLSearchParams({ actor })}`),
 
   accept: (grant: StrongRef) => postJson<StrongRef>('/api/accept', { grant }),

@@ -46,7 +46,7 @@ function App() {
   } else {
     switch (location.pathname) {
       case '/queue':
-        page = <QueuePage community={location.searchParams.get('community') ?? ''} />
+        page = <QueuePage community={location.searchParams.get('community') ?? ''} me={me} />
         break
       case '/community':
         page = <CommunityPage did={location.searchParams.get('did') ?? ''} tab={location.searchParams.get('tab') ?? ''} me={me} />

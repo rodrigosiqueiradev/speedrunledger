@@ -8,6 +8,7 @@ import { BansTab } from './community/BansTab.js'
 import { GamesTab } from './community/GamesTab.js'
 import { ModeratorsTab } from './community/ModeratorsTab.js'
 import { ProposalsTab } from './community/ProposalsTab.js'
+import { VideosTab } from './community/VideosTab.js'
 
 export interface CommunityContext {
   me: Me
@@ -22,7 +23,7 @@ export interface CommunityContext {
   proposed: () => void
 }
 
-const TABS = { proposals: 'Proposals', moderators: 'Moderators', bans: 'Bans', games: 'Games and categories' } as const
+const TABS = { proposals: 'Proposals', moderators: 'Moderators', bans: 'Bans', games: 'Games and categories', videos: 'Video links' } as const
 type Tab = keyof typeof TABS
 
 export function CommunityPage({ did, tab, me }: { did: string; tab: string; me: Me }) {
@@ -94,6 +95,7 @@ export function CommunityPage({ did, tab, me }: { did: string; tab: string; me: 
       {current === 'moderators' && <ModeratorsTab ctx={ctx} />}
       {current === 'bans' && <BansTab ctx={ctx} />}
       {current === 'games' && <GamesTab ctx={ctx} />}
+      {current === 'videos' && <VideosTab ctx={ctx} />}
     </section>
   )
 }

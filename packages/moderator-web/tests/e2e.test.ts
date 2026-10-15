@@ -59,6 +59,7 @@ beforeAll(async () => {
       plcUrl: env.plcUrl,
       pdsUrl: env.pdsUrl,
       executorIntervalMs: 0,
+      videoCheckIntervalMs: 0,
       devMode: true,
       labelerSigningKey: randomBytes(32).toString('hex'),
     },

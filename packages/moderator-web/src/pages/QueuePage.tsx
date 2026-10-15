@@ -6,7 +6,7 @@ import { Link, reviewHref, useLocation } from '../router.js'
 
 const timeKey = { realTime: 'realTimeMs', realTimeNoLoads: 'realTimeNoLoadsMs', gameTime: 'gameTimeMs' } as const
 
-export function QueuePage({ community }: { community: string }) {
+export function QueuePage({ community, me }: { community: string; me: { did: string } }) {
   const location = useLocation()
   const [items, setItems] = useState<QueueItem[]>()
   const [cursor, setCursor] = useState<string>()
@@ -48,7 +48,7 @@ export function QueuePage({ community }: { community: string }) {
               </tr>
             </thead>
             <tbody>
-              {items.map(({ run, category, approvals, requiredApprovals }) => (
+              {items.map(({ run, category, approvals, requiredApprovals, approvedBy }) => (
                 <tr key={run.uri}>
                   <td>{category.name}</td>
                   <td>
@@ -58,6 +58,7 @@ export function QueuePage({ community }: { community: string }) {
                   <td className="muted">{run.indexedAt.slice(0, 10)}</td>
                   <td>
                     {approvals} of {requiredApprovals}
+                    {approvedBy?.some((d) => d === me.did) && <span className="tag">you approved</span>}
                   </td>
                 </tr>
               ))}

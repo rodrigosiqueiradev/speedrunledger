@@ -8,6 +8,7 @@ import { Announcer } from './announcer.js'
 import type { CommunityServiceConfig } from './config.js'
 import { ProposalExecutor } from './executor.js'
 import { Labeler } from './labeler.js'
+import { VideoChecker } from './video-checker.js'
 import { CommunityService, fail } from './service.js'
 
 const json = (body: unknown, status = 200) =>
@@ -31,6 +32,7 @@ export class CommunityServiceServer {
   readonly admin: AdminService
   readonly executor: ProposalExecutor
   readonly announcer: Announcer
+  readonly videos: VideoChecker
   labeler?: Labeler
   private server?: Server
 
@@ -41,6 +43,7 @@ export class CommunityServiceServer {
     this.service = new CommunityService(config, logger)
     this.admin = new AdminService(this.service, { url: config.pdsUrl ?? '', adminPassword: config.pdsAdminPassword })
     this.executor = new ProposalExecutor(this.service)
+    this.videos = new VideoChecker(this.service)
     this.announcer = new Announcer(this.service, {
       runnerAppUrl: config.runnerAppUrl ?? 'http://127.0.0.1:2585',
       feedServiceDid: config.feedServiceDid ?? 'did:web:localhost%3A2584',
@@ -143,6 +146,7 @@ export class CommunityServiceServer {
       },
       'POST /admin/proposals/execute': async () => ({ executed: await this.executor.runOnce() }),
       'POST /admin/announcements/run': async () => ({ posted: await this.announcer.runOnce() }),
+      'POST /admin/videos/check': async () => this.videos.runOnce(),
     }
   }
 
@@ -219,11 +223,13 @@ export class CommunityServiceServer {
       this.executor.start(this.config.executorIntervalMs)
       this.announcer.start(this.config.executorIntervalMs)
     }
+    if (this.config.videoCheckIntervalMs > 0) this.videos.start(this.config.videoCheckIntervalMs)
   }
 
   async destroy(): Promise<void> {
     await this.executor.stop()
     await this.announcer.stop()
+    await this.videos.stop()
     await this.labeler?.close()
     if (this.server) await this.server.terminate()
     await this.service.destroy()

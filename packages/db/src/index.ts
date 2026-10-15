@@ -7,6 +7,7 @@ import * as oauth from './migrations/003-oauth.js'
 import * as communitySessions from './migrations/004-community-sessions.js'
 import * as governance from './migrations/005-governance.js'
 import * as reach from './migrations/006-reach.js'
+import * as videoChecks from './migrations/007-video-checks.js'
 import type { DatabaseSchema } from './schema.js'
 
 export * from './governance.js'
@@ -18,11 +19,13 @@ export type Database = Kysely<DatabaseSchema>
 pg.types.setTypeParser(pg.types.builtins.INT8, (value) => Number.parseInt(value, 10))
 
 export function createDb(connectionString: string, opts: { max?: number } = {}): Database {
-  return new Kysely<DatabaseSchema>({
-    dialect: new PostgresDialect({
-      pool: new pg.Pool({ connectionString, max: opts.max ?? 10 }),
-    }),
+  const pool = new pg.Pool({ connectionString, max: opts.max ?? 10 })
+  // An idle connection the server closes (a restart, a dropped database) is
+  // removed from the pool; without a listener the error would crash the process.
+  pool.on('error', (err) => {
+    if ((err as { code?: string }).code !== '57P01') console.error('idle database connection failed', err)
   })
+  return new Kysely<DatabaseSchema>({ dialect: new PostgresDialect({ pool }) })
 }
 
 const migrations: Record<string, Migration> = {
@@ -32,6 +35,7 @@ const migrations: Record<string, Migration> = {
   '004-community-sessions': communitySessions,
   '005-governance': governance,
   '006-reach': reach,
+  '007-video-checks': videoChecks,
 }
 
 class StaticMigrationProvider implements MigrationProvider {

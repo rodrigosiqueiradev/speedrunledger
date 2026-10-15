@@ -245,3 +245,5 @@ spec:
             secretKeyRef:
               name: ledger-dev
               key: labelerSigningKey
+        - name: VIDEO_CHECK_INTERVAL_MS
+          value: "604800000"

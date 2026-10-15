@@ -186,6 +186,7 @@ twice rewrites the same record.
 | `RUNNER_PUBLIC_URL` | The Runner app's URL, for links in world-record posts; default `http://127.0.0.1:2585`. |
 | `FEED_SERVICE_DID` | The feed generator named in feed declarations; default `did:web:localhost%3A2584`. |
 | `LABELER_SIGNING_KEY` | Hex secp256k1 key that signs labels; flagging is off without it. |
+| `VIDEO_CHECK_INTERVAL_MS` | How often each ranked run's video links are rechecked; default a week, 0 turns it off. |
 
 ## Bluesky reach
 
@@ -220,6 +221,24 @@ Bluesky clients.
   flag is a warning, not a verdict; boards don't change. Without the key,
   flagging is off.
 
+## Hardening
+
+- **Several approvals.** A category can require more than one approval
+  (`requiredApprovals` on the category, changed by proposal like any other
+  category field). Each moderator's `verified` verdict counts once
+  (`AlreadyApproved` otherwise); the run ranks when enough approvals stand on
+  its current version, and any edit sends it back to review. A moderator's
+  retime carries forward to later approvals that don't give their own. The
+  Moderator app shows approvals so far in the queue and on the review page.
+- **Video link checks.** The community service checks the video links of
+  every ranked run (`VIDEO_CHECK_INTERVAL_MS`, weekly by default; `ledger-admin
+  videos check` runs it now). YouTube is asked through its oEmbed endpoint,
+  which errors for deleted and private videos; other hosts get HEAD, then GET.
+  Only "not found" and "gone" count as dead; timeouts and other errors are
+  left alone. Dead links show on the run in both apps, in the Moderator app's
+  Video links tab (`listVideoProblems`), and as a notification to the runner.
+  The run keeps its place; what to do is the moderators' call.
+
 Admin endpoints (`Authorization: Bearer $COMMUNITY_ADMIN_TOKEN`) back
 `ledger-admin`; every sysadmin action names the acting sysadmin, who must be
 listed in the platform account's repo.
@@ -232,6 +251,7 @@ pnpm ledger-admin --as rosalina.test requests list
 pnpm ledger-admin --as rosalina.test community create --request at://… --handle sm64.test --name "Super Mario 64"
 pnpm ledger-admin --as rosalina.test community freeze sm64.test --reason "Leaderboard vandalism"
 pnpm ledger-admin community export sm64.test --out sm64.car
+pnpm ledger-admin videos check
 ```
 
 `scripts/ledger-admin.sh` reads the admin token and URLs from `dev.env`.
@@ -263,7 +283,9 @@ Outside the dev stack it needs `COMMUNITY_ADMIN_TOKEN` and takes
    announced from the community's account, a world-record feed per game,
    Share to Bluesky, notifications, and suspected-cheating labels from a
    labeler.
-6. Hardening (next).
+6. **Hardening: done.** Several approvals per run where a category asks for
+   them, and weekly checks for dead video links. Co-signed reviews and the
+   import tool are out of scope for the prototype.
 
 ## License
 

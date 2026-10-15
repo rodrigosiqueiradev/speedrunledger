@@ -47,7 +47,7 @@ export type $OutputBody<B = l.BinaryData> = l.InferPayloadBody<
   B
 >
 
-/** Served by the community service. Writes a verification record into the run's community repo, with the caller as reviewer. The caller authenticates with a service-auth JWT from their own PDS and must be an active, unbanned moderator of that community who is not a runner on the run. */
+/** Served by the community service. Writes a verification record into the run's community repo, with the caller as reviewer. The caller authenticates with a service-auth JWT from their own PDS and must be an active, unbanned moderator of that community who is not a runner on the run. When the category needs several approvals, each moderator approves a version once, and an approval without verifiedTimes keeps an earlier approver's retime. */
 const main = /*#__PURE__*/ l.procedure($nsid, $params, $input, $output, [
   'RunNotFound',
   'RunChanged',
@@ -56,6 +56,7 @@ const main = /*#__PURE__*/ l.procedure($nsid, $params, $input, $output, [
   'Banned',
   'OwnRun',
   'CommunityNotManaged',
+  'AlreadyApproved',
 ])
 
 export { main }

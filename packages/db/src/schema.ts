@@ -345,7 +345,19 @@ export interface LabelTable {
   reason: string | null
 }
 
+/** The community service's last check of one video link on a ranked run. */
+export interface VideoCheckTable {
+  run_uri: string
+  url: string
+  community_did: string
+  status: 'ok' | 'dead' | 'unknown'
+  http_status: number | null
+  detail: string | null
+  checked_at: Timestamp
+}
+
 export interface DatabaseSchema {
+  video_check: VideoCheckTable
   world_record: WorldRecordTable
   announcement: AnnouncementTable
   label: LabelTable

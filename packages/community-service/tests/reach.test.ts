@@ -1,3 +1,4 @@
+import type { AddressInfo } from 'node:net'
 import { verifySignature } from '@atproto/crypto'
 import { decodeAll } from '@atproto/lex-cbor'
 import { AppViewServer } from '@speedrunledger/appview'
@@ -5,7 +6,8 @@ import { ids } from '@speedrunledger/lexicon'
 import { createAccount, putRecord, runRecord, setupCommunity, type TestAccount, type TestCommunity, waitFor } from '@speedrunledger/testkit'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { WebSocket } from 'ws'
-import { unsignedBytes } from '../src/index.js'
+import { createServer, type Server } from 'node:http'
+import { checkVideo, unsignedBytes, VideoChecker } from '../src/index.js'
 import { admin, callAs, type Harness, startHarness } from './helpers.js'
 
 // World-record posts, the feed generator, notifications and labels, against
@@ -146,5 +148,66 @@ describe('labels', () => {
     ws.close()
     expect(frames[0][0]).toEqual({ op: 1, t: '#labels' })
     expect((await xrpc(`${NS}.getRun`, { uri: run.uri })).run.labels).toBeUndefined()
+  }, 60_000)
+})
+
+describe('video link checks', () => {
+  let videos: Server
+  let base: string
+  beforeAll(async () => {
+    // A video host: /ok plays, /gone was deleted, /no-head refuses HEAD but plays.
+    videos = createServer((req, res) => {
+      if (req.url === '/ok') return res.writeHead(200).end()
+      if (req.url === '/no-head') return res.writeHead(req.method === 'HEAD' ? 405 : 200).end()
+      res.writeHead(404).end()
+    })
+    await new Promise<void>((resolve) => videos.listen(0, '127.0.0.1', resolve))
+    base = `http://127.0.0.1:${(videos.address() as AddressInfo).port}`
+  })
+  afterAll(() => new Promise((resolve) => videos.close(resolve)))
+
+  // YouTube itself is out of reach in tests; its oEmbed endpoint answers 404 for deleted videos.
+  const fetcher: typeof fetch = async (input, init) => {
+    const url = new URL(String(input))
+    if (url.hostname === 'www.youtube.com') return new Response(null, { status: url.searchParams.get('url')!.includes('deleted') ? 404 : 200 })
+    return fetch(input, init)
+  }
+
+  it('tells working, dead and unknown links apart', async () => {
+    expect(await checkVideo(`${base}/ok`, fetcher)).toEqual({ status: 'ok', httpStatus: 200 })
+    expect(await checkVideo(`${base}/no-head`, fetcher)).toEqual({ status: 'ok', httpStatus: 200 })
+    expect(await checkVideo(`${base}/gone`, fetcher)).toMatchObject({ status: 'dead', httpStatus: 404 })
+    expect(await checkVideo('https://youtu.be/deleted', fetcher)).toMatchObject({ status: 'dead', httpStatus: 404 })
+    expect(await checkVideo('ftp://example.test/run.mp4', fetcher)).toMatchObject({ status: 'unknown' })
+    expect(await checkVideo('http://127.0.0.1:1/run', fetcher)).toMatchObject({ status: 'unknown' })
+  })
+
+  it('finds dead links on ranked runs and tells moderators and the runner', async () => {
+    const runner = await createAccount(h.env, 'vr')
+    const run = await putRecord(
+      runner,
+      ids.run,
+      runRecord(community.categories.seventyStar, { videos: [{ url: `${base}/ok` }, { url: `${base}/gone` }, { url: 'https://www.youtube.com/watch?v=deleted' }] }),
+    )
+    await waitFor(() => h.db.selectFrom('run').select('uri').where('uri', '=', run.uri).executeTakeFirst())
+    expect((await callAs(h.server, mod, `${NS}.moderation.createVerdict`, { run, status: 'verified' })).status).toBe(200)
+    await waitFor(() => h.db.selectFrom('board_entry').select('run_uri').where('run_uri', '=', run.uri).executeTakeFirst())
+
+    const checker = new VideoChecker(h.server.service, fetcher)
+    expect((await checker.runOnce()).dead).toBe(2)
+    // Checked within the interval: nothing to do.
+    expect(await checker.runOnce({ recheckAfterMs: 60_000 })).toEqual({ checked: 0, dead: 0 })
+
+    expect((await xrpc(`${NS}.getRun`, { uri: run.uri })).run.deadVideos.sort()).toEqual([`${base}/gone`, 'https://www.youtube.com/watch?v=deleted'])
+    const { problems } = await xrpc(`${NS}.listVideoProblems`, { community: community.account.did })
+    expect(problems.map((p: any) => [p.run.uri, p.url, p.httpStatus]).sort()).toEqual([
+      [run.uri, `${base}/gone`, 404],
+      [run.uri, 'https://www.youtube.com/watch?v=deleted', 404],
+    ])
+    const { notifications } = await xrpc(`${NS}.listNotifications`, { actor: runner.did })
+    expect(notifications.filter((n: any) => n.reason === 'deadVideo').map((n: any) => n.text).sort()).toEqual([
+      `${base}/gone`,
+      'https://www.youtube.com/watch?v=deleted',
+    ])
   }, 60_000)
 })
