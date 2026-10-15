@@ -30,6 +30,32 @@ document. It is being built in the doc's order; see [Status](#status).
 
 Node 22+, pnpm 10, and Podman (rootless works; no Docker).
 
+The repo pins pnpm in `packageManager`; `corepack enable` gives you that
+version.
+
+### Windows (WSL)
+
+Work inside WSL with the clone in the Linux filesystem (`~/…`, not
+`/mnt/c/…`), and install Node and Podman inside WSL too. WSL appends the
+Windows `PATH` to yours, so a Node or pnpm installed on Windows can be picked
+up instead; Windows pnpm then fails with `current dir is an absolute path with
+drive letter` or similar. Check with `which -a node pnpm`: the first entry of
+each must not start with `/mnt/c/`. To fix it:
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.3/install.sh | bash
+exec $SHELL -l
+nvm install 22
+corepack enable
+hash -r
+which pnpm         # should be under ~/.nvm, not /mnt/c
+pnpm install
+```
+
+To keep Windows tools out of WSL for good, put `[interop]` and
+`appendWindowsPath = false` in `/etc/wsl.conf`, then run `wsl --shutdown`
+from Windows.
+
 ## Local stack
 
 ```sh
