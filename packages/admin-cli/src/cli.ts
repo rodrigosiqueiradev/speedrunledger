@@ -1,6 +1,6 @@
 import { writeFile } from 'node:fs/promises'
 import { parseArgs } from 'node:util'
-import { AdminClient, type AdminClientEnv } from './client.js'
+import { AdminClient, type AdminClientEnv } from '@speedrunledger/admin-client'
 
 export interface CliEnv extends AdminClientEnv {
   /** The acting sysadmin's DID or handle. */

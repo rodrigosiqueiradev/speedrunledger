@@ -26,6 +26,9 @@ importers:
       '@atproto/api':
         specifier: 0.27.0
         version: 0.27.0
+      '@speedrunledger/admin-client':
+        specifier: workspace:*
+        version: link:../admin-client
     devDependencies:
       '@speedrunledger/appview':
         specifier: workspace:*
@@ -46,11 +49,13 @@ importers:
         specifier: 10.4.0
         version: 10.4.0
 
+  packages/admin-client: {}
+
   packages/admin-web:
     dependencies:
-      '@speedrunledger/admin-cli':
+      '@speedrunledger/admin-client':
         specifier: workspace:*
-        version: link:../admin-cli
+        version: link:../admin-client
       '@speedrunledger/db':
         specifier: workspace:*
         version: link:../db

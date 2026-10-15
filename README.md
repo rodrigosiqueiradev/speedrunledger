@@ -22,7 +22,8 @@ document. It is being built in the doc's order; see [Status](#status).
 | `packages/runner-web` | The Runner app: browse boards, sign in, submit, edit and delete runs in your own repo, share runs to Bluesky, see notifications and world record history, and ask for a new community. React + Vite with a small Express backend. |
 | `packages/moderator-web` | The Moderator app: your communities and invitations, the review queue and verdicts (verify, retime, request changes, reject), flags for suspected cheating, proposals waiting for your vote, and community management: proposals and votes, the moderator roster, bans, games, categories and rules, and repo export. |
 | `packages/admin-web` | The Admin app: for sysadmins, first-run platform setup, community requests (create or deny), communities (add games, appoint a moderator when none is active, freeze and unfreeze, export), sysadmins, and the community service's jobs. Only accounts listed as sysadmins get in. |
-| `packages/admin-cli` | `ledger-admin`, the sysadmins' command line, the demo seed, and the admin client the Admin app shares with it. |
+| `packages/admin-client` | The admin client: typed calls to the community service's admin endpoints and the AppView, shared by the Admin app and `ledger-admin`. |
+| `packages/admin-cli` | `ledger-admin`, the sysadmins' command line, and the demo seed. |
 | `packages/testkit` | Helpers for integration tests against the local stack: accounts, records, a hand-built Super Mario 64 community. |
 | `infra/` | Podman images for the local PDS and PLC directory; `deps.yaml` (PDS, PLC, Postgres) and `dev.yaml` (our services) for `podman kube play`. |
 | `scripts/` | `podman-build.mjs`, `dev-up.mjs`, `dev-down.mjs`, `ledger-admin.mjs`, `seed-demo.mjs`: the dev stack, in plain Node so they run on Windows too. |
@@ -325,7 +326,7 @@ Sysadmins never touch verdicts or boards, in the app or anywhere else.
 ## ledger-admin
 
 The command line does the same through the same admin client
-(`packages/admin-cli/src/client.ts`), for scripts and the demo seed.
+(`packages/admin-client`), for scripts and the demo seed.
 
 ```sh
 pnpm ledger-admin --help

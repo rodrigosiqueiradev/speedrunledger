@@ -1,4 +1,4 @@
-import type { CommunityRequest, CreatedCommunity, GameInput, ManagedCommunity, WriteResult } from '@speedrunledger/admin-cli'
+import type { CommunityRequest, CreatedCommunity, GameInput, ManagedCommunity, WriteResult } from '@speedrunledger/admin-client'
 import type { CommunityDetail, ModeratorView } from '@speedrunledger/lexicon'
 import { call, postJson, query } from '@speedrunledger/web-ui'
 

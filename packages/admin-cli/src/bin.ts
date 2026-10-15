@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { LedgerAdmin, readEnv, UsageError } from './cli.js'
-import { AdminApiError } from './client.js'
+import { AdminApiError } from '@speedrunledger/admin-client'
 
 try {
   const argv = process.argv.slice(2)

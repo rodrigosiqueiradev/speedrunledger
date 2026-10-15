@@ -13,7 +13,7 @@
     "dev": "tsx --conditions=@speedrunledger/source server/bin.ts"
   },
   "dependencies": {
-    "@speedrunledger/admin-cli": "workspace:*",
+    "@speedrunledger/admin-client": "workspace:*",
     "@speedrunledger/db": "workspace:*",
     "@speedrunledger/web-auth": "workspace:*",
     "@speedrunledger/web-ui": "workspace:*",

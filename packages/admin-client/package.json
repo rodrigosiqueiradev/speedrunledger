@@ -1,0 +1,19 @@
+{
+  "name": "@speedrunledger/admin-client",
+  "version": "0.0.0",
+  "private": true,
+  "license": "MIT",
+  "type": "module",
+  "description": "What a sysadmin can do, as typed calls to the community service's admin endpoints and the AppView. Shared by ledger-admin and the Admin app.",
+  "exports": {
+    ".": {
+      "@speedrunledger/source": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  }
+}
